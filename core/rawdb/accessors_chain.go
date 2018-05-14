@@ -19,9 +19,11 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -48,6 +50,33 @@ func DeleteCanonicalHash(db DatabaseDeleter, number uint64) {
 	if err := db.Delete(headerHashKey(number)); err != nil {
 		log.Crit("Failed to delete number to hash mapping", "err", err)
 	}
+}
+
+// ReadDirtyDump returns the dirty dump for the given block
+func ReadDirtyDump(db DatabaseReader, root common.Hash) (*state.DirtyDump, error) {
+	data, err := db.Get(append(dirtyDumpPrefix, root.Bytes()...))
+	if err != nil {
+		return nil, err
+	}
+	result := &state.DirtyDump{}
+	err = json.Unmarshal(data, result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// WriteDirtyDump stores the dirty dump for the given block
+func WriteDirtyDump(db DatabaseWriter, hash common.Hash, dump *state.DirtyDump) error {
+	data, err := json.MarshalIndent(dump, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	if err := db.Put(append(dirtyDumpPrefix, hash.Bytes()...), data); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ReadHeaderNumber returns the header number assigned to a hash.

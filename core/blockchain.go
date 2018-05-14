@@ -1201,6 +1201,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		if err != nil {
 			return it.index, events, coalescedLogs, err
 		}
+
+		// Start to record dirty storage
+		state.StartDirtyStorage()
+
 		// Process block using the parent state as reference point.
 		t0 := time.Now()
 		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
@@ -1251,9 +1255,18 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		blockInsertTimer.UpdateSince(start)
 		stats.processed++
 		stats.usedGas += usedGas
-
 		cache, _ := bc.stateCache.TrieDB().Size()
 		stats.report(chain, it.index, cache)
+
+		// Write dirty storage
+		dump := state.DumpDirty()
+		err = bc.WriteDirtyDump(block.Hash(), dump)
+		if err != nil {
+			log.Warn("Failed to write dirty dump", "err", err)
+		} else {
+			log.Debug("Write dirty dump successfully", "root", dump.Root)
+		}
+		state.StopDirtyStorage()
 	}
 	// Any blocks remaining here? The only ones we care about are the future ones
 	if block != nil && err == consensus.ErrFutureBlock {
@@ -1722,4 +1735,16 @@ func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Su
 // SubscribeLogsEvent registers a subscription of []*types.Log.
 func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
+}
+
+// WriteDirtyDump writes the dirty dump
+func (bc *BlockChain) WriteDirtyDump(hash common.Hash, dump *state.DirtyDump) error {
+	bc.wg.Add(1)
+	defer bc.wg.Done()
+	return rawdb.WriteDirtyDump(bc.db, hash, dump)
+}
+
+// GetDirtyDump gets the dirty dump
+func (bc *BlockChain) GetDirtyDump(hash common.Hash) (*state.DirtyDump, error) {
+	return rawdb.ReadDirtyDump(bc.db, hash)
 }
