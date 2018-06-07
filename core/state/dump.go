@@ -81,33 +81,84 @@ func (self *StateDB) Dump() []byte {
 }
 
 type DirtyDump struct {
-	Root     string                      `json:"root"`
+	Root         string                 `json:"root"`
+	Transactions []DirtyDumpTransaction `json:"transactions"`
+}
+
+func newDirtyDump(trie Trie) *DirtyDump {
+	return &DirtyDump{
+		Root:         fmt.Sprintf("%x", trie.Hash()),
+		Transactions: make([]DirtyDumpTransaction, 0),
+	}
+}
+
+// DirtyDumpTransaction records the account change by transaction.
+type DirtyDumpTransaction struct {
+	TxHash   string                      `json:"tx_hash"`
 	Accounts map[string]DirtyDumpAccount `json:"accounts"`
 }
 
+// DirtyDumpAccount records the changed balance and storage for an account.
 type DirtyDumpAccount struct {
-	Balance string            `json:"balance"`
-	Nonce   uint64            `json:"nonce"`
-	Storage map[string]string `json:"storage"`
+	Balance *string           `json:"balance,omitempty"`
+	Storage map[string]string `json:"storage,omitempty"`
 }
 
-// DumpDirty dumps the dirty storage diff
+// DumpDirty return the dirty storage diff.
 func (self *StateDB) DumpDirty() *DirtyDump {
-	dump := &DirtyDump{
-		Root:     fmt.Sprintf("%x", self.trie.Hash()),
+	return self.dirtyDump
+}
+
+// DumpDirtySnapshot dumps the balances and dirty storage for each dirty accounts in current state.
+func (self *StateDB) DumpDirtySnapshot() {
+	dumpTransaction := DirtyDumpTransaction{
+		TxHash:   common.Bytes2Hex(self.thash.Bytes()),
 		Accounts: make(map[string]DirtyDumpAccount),
 	}
+	for addr, change := range calcDirties(self.journal.entries[self.lastJournal:]) {
+		account, exist := dumpTransaction.Accounts[common.Bytes2Hex(addr.Bytes())]
+		if !exist {
+			account = DirtyDumpAccount{Storage: make(map[string]string)}
+		}
 
-	for addr, storage := range self.dirtyStorage {
-		account := DirtyDumpAccount{
-			Balance: self.GetBalance(addr).String(),
-			Nonce:   self.GetNonce(addr),
-			Storage: make(map[string]string),
+		if change.balanceChange > 0 {
+			balace := self.GetBalance(addr).String()
+			account.Balance = &balace
 		}
-		for key, value := range storage {
-			account.Storage[common.Bytes2Hex(key.Bytes())] = common.Bytes2Hex(value.Bytes())
+
+		if len(change.storageChange) > 0 {
+			stateObject := self.GetOrNewStateObject(addr)
+			for key := range change.storageChange {
+				value := stateObject.dirtyStorage[key]
+				account.Storage[common.Bytes2Hex(key.Bytes())] = common.Bytes2Hex(value.Bytes())
+			}
 		}
-		dump.Accounts[common.Bytes2Hex(addr.Bytes())] = account
+		dumpTransaction.Accounts[common.Bytes2Hex(addr.Bytes())] = account
 	}
-	return dump
+	self.dirtyDump.Transactions = append(self.dirtyDump.Transactions, dumpTransaction)
+}
+
+// dirtyDiff records how many balance changes and changed keys of storage for one account.
+type dirtyDiff struct {
+	balanceChange int
+	storageChange map[common.Hash]struct{}
+}
+
+// calcDirties calculates balance change and storage change by account.
+func calcDirties(dirtyEntry []journalEntry) map[common.Address]*dirtyDiff {
+	dirties := make(map[common.Address]*dirtyDiff)
+	for _, entry := range dirtyEntry {
+		if addr := entry.dirtied(); addr != nil {
+			if dirties[*addr] == nil {
+				dirties[*addr] = &dirtyDiff{storageChange: make(map[common.Hash]struct{})}
+			}
+			switch v := entry.(type) {
+			case balanceChange:
+				dirties[*addr].balanceChange++
+			case storageChange:
+				dirties[*addr].storageChange[v.key] = struct{}{}
+			}
+		}
+	}
+	return dirties
 }
