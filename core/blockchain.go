@@ -1202,9 +1202,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 			return it.index, events, coalescedLogs, err
 		}
 
-		// Start to record dirty storage
-		state.StartDirtyStorage()
-
 		// Process block using the parent state as reference point.
 		t0 := time.Now()
 		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
@@ -1266,7 +1263,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		} else {
 			log.Debug("Write dirty dump successfully", "root", dump.Root)
 		}
-		state.StopDirtyStorage()
 	}
 	// Any blocks remaining here? The only ones we care about are the future ones
 	if block != nil && err == consensus.ErrFutureBlock {
