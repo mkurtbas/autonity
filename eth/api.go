@@ -453,9 +453,7 @@ func GetDirtyStorage(config *params.ChainConfig, blockchain *core.BlockChain, nu
 		return nil, err
 	}
 
-	stateDB.StartDirtyStorage()
 	defer func() {
-		stateDB.StopDirtyStorage()
 		if err == nil {
 			stateErr := blockchain.WriteDirtyDump(hash, dump)
 			if stateErr != nil {
