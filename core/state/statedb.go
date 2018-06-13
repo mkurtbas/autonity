@@ -87,9 +87,12 @@ type StateDB struct {
 	validRevisions []revision
 	nextRevisionId int
 
-	// dirtyDump records the account changes for each transaction
+	// dirtyDump records the account changes for each transaction.
 	lastJournal int
 	dirtyDump   *DirtyDump
+
+	// transferLogs records trasfer logs for each transaction.
+	transferLogs map[common.Hash][]*types.TransferLog
 }
 
 // Create a new state from a given trie.
@@ -104,6 +107,7 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		stateObjects:      make(map[common.Address]*stateObject),
 		stateObjectsDirty: make(map[common.Address]struct{}),
 		logs:              make(map[common.Hash][]*types.Log),
+		transferLogs:      make(map[common.Hash][]*types.TransferLog),
 		preimages:         make(map[common.Hash][]byte),
 		journal:           newJournal(),
 		dirtyDump:         newDirtyDump(tr),
@@ -136,6 +140,7 @@ func (self *StateDB) Reset(root common.Hash) error {
 	self.txIndex = 0
 	self.logs = make(map[common.Hash][]*types.Log)
 	self.logSize = 0
+	self.transferLogs = make(map[common.Hash][]*types.TransferLog)
 	self.preimages = make(map[common.Hash][]byte)
 	self.dirtyDump = newDirtyDump(tr)
 	self.lastJournal = 0
@@ -161,6 +166,25 @@ func (self *StateDB) GetLogs(hash common.Hash) []*types.Log {
 func (self *StateDB) Logs() []*types.Log {
 	var logs []*types.Log
 	for _, lgs := range self.logs {
+		logs = append(logs, lgs...)
+	}
+	return logs
+}
+
+func (self *StateDB) AddTransferLog(transferLog *types.TransferLog) {
+	self.journal.append(addTransferLogChange{txhash: self.thash})
+
+	transferLog.TxHash = self.thash
+	self.transferLogs[self.thash] = append(self.transferLogs[self.thash], transferLog)
+}
+
+func (self *StateDB) GetTransferLogs(hash common.Hash) []*types.TransferLog {
+	return self.transferLogs[hash]
+}
+
+func (self *StateDB) TransferLogs() []*types.TransferLog {
+	var logs []*types.TransferLog
+	for _, lgs := range self.transferLogs {
 		logs = append(logs, lgs...)
 	}
 	return logs
