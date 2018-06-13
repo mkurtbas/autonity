@@ -433,8 +433,8 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getModifiedAccountStatesByNumber',
 			call: 'debug_getModifiedAccountStatesByNumber',
-			params: 2,
-			inputFormatter: [null, null],
+			params: 1,
+			inputFormatter: [null],
 		}),
 		new web3._extend.Method({
 			name: 'getTotalDifficulty',
