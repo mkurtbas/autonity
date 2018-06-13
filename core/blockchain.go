@@ -1244,6 +1244,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		cache, _ := bc.stateCache.TrieDB().Size()
 		stats.report(chain, it.index, cache)
 
+		// Write the transfer logs
+		bc.WriteTransferLogs(block.Hash(), block.NumberU64(), state.TransferLogs())
+
 		// Write dirty storage
 		dump := state.DumpDirty()
 		err = bc.WriteDirtyDump(block.Hash(), dump)
@@ -1732,4 +1735,20 @@ func (bc *BlockChain) WriteDirtyDump(hash common.Hash, dump *state.DirtyDump) er
 // GetDirtyDump gets the dirty dump
 func (bc *BlockChain) GetDirtyDump(hash common.Hash) (*state.DirtyDump, error) {
 	return rawdb.ReadDirtyDump(bc.db, hash)
+}
+
+// WriteTransferLogs writes all the transfer logs belonging to a block.
+func (bc *BlockChain) WriteTransferLogs(hash common.Hash, number uint64, transferLogs []*types.TransferLog) {
+	bc.wg.Add(1)
+	defer bc.wg.Done()
+	rawdb.WriteTransferLogs(bc.db, hash, number, transferLogs)
+}
+
+// GetTransferLogs retrieves the transfer logs for all transactions in a given block.
+func (bc *BlockChain) GetTransferLogs(hash common.Hash) []*types.TransferLog {
+	number := rawdb.ReadHeaderNumber(bc.db, hash)
+	if number == nil {
+		return nil
+	}
+	return rawdb.ReadTransferLogs(bc.db, hash, *number)
 }
