@@ -337,6 +337,18 @@ func (api *PrivateDebugAPI) GetBadBlocks(ctx context.Context) ([]*BadBlockArgs, 
 	return results, nil
 }
 
+// GetTransferLogs is a debug API function that returns the transfer logs for a block hash, if known.
+func (api *PrivateDebugAPI) GetTransferLogs(ctx context.Context, hash common.Hash) ([]*types.TransferLog, error) {
+	number := rawdb.ReadHeaderNumber(api.eth.ChainDb(), hash)
+	if number == nil {
+		return nil, errors.New("unknown transfer logs")
+	}
+	if transferLogs := rawdb.ReadTransferLogs(api.eth.ChainDb(), hash, *number); transferLogs != nil {
+		return transferLogs, nil
+	}
+	return nil, errors.New("unknown transfer logs")
+}
+
 // StorageRangeResult is the result of a debug_storageRangeAt API call.
 type StorageRangeResult struct {
 	Storage storageMap   `json:"storage"`
