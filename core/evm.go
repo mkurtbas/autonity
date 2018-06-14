@@ -98,7 +98,7 @@ func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) 
 		db.AddTransferLog(&types.TransferLog{
 			From:  sender,
 			To:    recipient,
-			Value: amount,
+			Value: new(big.Int).Set(amount),
 		})
 	}
 }
