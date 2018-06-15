@@ -26,6 +26,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Tests that an empty state is not scheduled for syncing.
@@ -215,5 +216,40 @@ func TestDumpDirtyCopy(t *testing.T) {
 			assert.True(t, reflect.DeepEqual(dirty.Storage, cpy.Accounts[account].Storage),
 				"Storate should be equal, want:%v, got:%v", dirty.Storage, cpy.Accounts[account].Storage)
 		}
+	}
+}
+
+func TestRLPEncodeAndDecodeDumpDirty(t *testing.T) {
+	hash := common.HexToHash("01")
+	dump := &DirtyDump{
+		Root: common.Bytes2Hex(hash.Bytes()),
+		Accounts: map[string]DirtyDumpAccount{
+			"addr1": {
+				Balance: "100",
+			},
+			"addr2": {
+				Storage: map[string]string{
+					"addr2key1": "addr2value1",
+				},
+			},
+			"addr3": {
+				Balance: "300",
+				Storage: map[string]string{
+					"addr3key1": "addr3value1",
+				},
+			},
+		},
+	}
+	bytes, err := rlp.EncodeToBytes(dump)
+	if err != nil {
+		t.Errorf("unexpected error on rlp encode %v", err)
+	}
+
+	got := &DirtyDump{}
+	if err := rlp.DecodeBytes(bytes, got); err != nil {
+		t.Errorf("unexpected error on rlp decode %v", err)
+	}
+	if !reflect.DeepEqual(dump, got) {
+		t.Errorf("DirtyDump not equal between rlp encode/decode GOT %v WANT %v", got, dump)
 	}
 }
