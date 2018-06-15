@@ -130,7 +130,6 @@ func (self *StateDB) dumpDirtySnapshot() {
 		}
 
 		if change.balanceChange > 0 {
-			//balace := self.GetBalance(addr).String()
 			account.Balance = self.GetBalance(addr).String()
 		}
 
