@@ -325,42 +325,21 @@ func TestStorageDiff(t *testing.T) {
 
 	// Create a test body to move around the database and make sure it's really new
 	hash := common.HexToHash("01")
-	addr1balance := "100"
-	addr2balance := "200"
-	addr3balance := "300"
 	dump := &state.DirtyDump{
 		Root: common.Bytes2Hex(hash.Bytes()),
-		Transactions: []state.DirtyDumpTransaction{
-			{
-				TxHash: "tx_hash_1",
-				Accounts: map[string]state.DirtyDumpAccount{
-					"addr1": {
-						Balance: &addr1balance,
-					},
-					"addr2": {
-						Storage: map[string]string{
-							"addr2key1": "addr2value1",
-						},
-					},
-					"addr3": {
-						Balance: &addr3balance,
-						Storage: map[string]string{
-							"addr3key1": "addr3value1",
-						},
-					},
+		Accounts: map[string]state.DirtyDumpAccount{
+			"addr1": {
+				Balance: "100",
+			},
+			"addr2": {
+				Storage: map[string]string{
+					"addr2key1": "addr2value1",
 				},
 			},
-			{
-				TxHash: "tx_hash_2",
-				Accounts: map[string]state.DirtyDumpAccount{
-					"addr1": {
-						Storage: map[string]string{
-							"add1key2": "add1value2",
-						},
-					},
-					"addr2": {
-						Balance: &addr2balance,
-					},
+			"addr3": {
+				Balance: "300",
+				Storage: map[string]string{
+					"addr3key1": "addr3value1",
 				},
 			},
 		},
