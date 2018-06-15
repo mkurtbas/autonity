@@ -87,9 +87,8 @@ type StateDB struct {
 	validRevisions []revision
 	nextRevisionId int
 
-	// dirtyDump records the account changes for each transaction.
-	lastJournal int
-	dirtyDump   *DirtyDump
+	// dirtyDump records the account changes.
+	dirtyDump *DirtyDump
 
 	// transferLogs records trasfer logs for each transaction.
 	transferLogs map[common.Hash][]*types.TransferLog
@@ -143,7 +142,6 @@ func (self *StateDB) Reset(root common.Hash) error {
 	self.transferLogs = make(map[common.Hash][]*types.TransferLog)
 	self.preimages = make(map[common.Hash][]byte)
 	self.dirtyDump = newDirtyDump(tr)
-	self.lastJournal = 0
 	self.clearJournalAndRefund()
 	return nil
 }
@@ -532,8 +530,10 @@ func (self *StateDB) Copy() *StateDB {
 		refund:            self.refund,
 		logs:              make(map[common.Hash][]*types.Log, len(self.logs)),
 		logSize:           self.logSize,
+		transferLogs:      make(map[common.Hash][]*types.TransferLog),
 		preimages:         make(map[common.Hash][]byte),
 		journal:           newJournal(),
+		dirtyDump:         self.dirtyDump.Copy(),
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range self.journal.dirties {
@@ -565,6 +565,10 @@ func (self *StateDB) Copy() *StateDB {
 	}
 	for hash, preimage := range self.preimages {
 		state.preimages[hash] = preimage
+	}
+	for hash, transferLogs := range self.transferLogs {
+		state.transferLogs[hash] = make([]*types.TransferLog, len(transferLogs))
+		copy(state.transferLogs[hash], transferLogs)
 	}
 	return state
 }
@@ -621,6 +625,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
+	s.dumpDirtySnapshot()
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
@@ -639,7 +644,6 @@ func (self *StateDB) Prepare(thash, bhash common.Hash, ti int) {
 	self.thash = thash
 	self.bhash = bhash
 	self.txIndex = ti
-	self.lastJournal = self.journal.length()
 }
 
 func (s *StateDB) clearJournalAndRefund() {
