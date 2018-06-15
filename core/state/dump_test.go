@@ -19,6 +19,7 @@ package state
 import (
 	"fmt"
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -82,7 +83,7 @@ type testDirtyAction struct {
 	storage map[common.Hash]common.Hash
 }
 
-func TestDumpDirtySnapshot(t *testing.T) {
+func TestDumpDirty(t *testing.T) {
 	bhash := common.HexToHash("0xbd921b799e372549034755b7523e80634ad73d8eddeced84ef35114825192095")
 	addr1 := common.HexToAddress("0x823140710bf13990e4500136726d8b55")
 	addr2 := common.HexToAddress("0xfb45ca3e7e9d9d8a1cbc94f9d7c4144c46c030d6")
@@ -138,32 +139,81 @@ func TestDumpDirtySnapshot(t *testing.T) {
 		},
 	}
 
+	type diff struct {
+		Balance int64
+		Storage map[common.Hash]common.Hash
+	}
+	expChange := map[common.Address]*diff{}
 	// apply transactins
 	for ti, testCase := range actions {
 		state.Prepare(common.BytesToHash(common.Hex2Bytes(testCase.thash)), bhash, ti)
 		testCase.fn(testCase, state)
-		state.DumpDirtySnapshot()
+		state.Finalise(true)
+		dirtyAccount, _ := expChange[testCase.addr]
+		if dirtyAccount == nil {
+			dirtyAccount = &diff{Storage: make(map[common.Hash]common.Hash)}
+		}
+		if testCase.balance != 0 {
+			dirtyAccount.Balance = testCase.balance
+		}
+		if len(testCase.storage) > 0 {
+			for key, val := range testCase.storage {
+				dirtyAccount.Storage[key] = val
+			}
+		}
+		expChange[testCase.addr] = dirtyAccount
 	}
 
 	dirtyDump := state.DumpDirty()
 	assert.NotNil(t, dirtyDump)
-	assert.Equal(t, len(actions), len(dirtyDump.Transactions))
+	assert.Equal(t, 2, len(dirtyDump.Accounts))
 
-	for i, dumpTransaction := range dirtyDump.Transactions {
-		assert.Equal(t, actions[i].thash, dumpTransaction.TxHash,
-			"TxHash is not equal, want:%v, got:%v, in case %v", actions[i].thash, dumpTransaction.TxHash, actions[i].name)
-		assert.Equal(t, 1, len(dumpTransaction.Accounts))
-		dirtyAccount, exist := dumpTransaction.Accounts[common.Bytes2Hex(actions[i].addr.Bytes())]
+	for addr, diff := range expChange {
+		dirtyAccount, exist := dirtyDump.Accounts[common.Bytes2Hex(addr.Bytes())]
 		assert.True(t, exist)
-		if actions[i].balance != 0 {
+		if diff.Balance != 0 {
 			assert.NotNil(t, dirtyAccount.Balance)
-			assert.Equal(t, fmt.Sprintf("%d", actions[i].balance), *dirtyAccount.Balance)
+			assert.Equal(t, fmt.Sprintf("%d", diff.Balance), dirtyAccount.Balance)
 		}
-		if len(actions[i].storage) > 0 {
-			assert.Equal(t, len(actions[i].storage), len(dirtyAccount.Storage))
-			for key, val := range actions[i].storage {
+		if len(diff.Storage) > 0 {
+			assert.Equal(t, len(diff.Storage), len(dirtyAccount.Storage))
+			for key, val := range diff.Storage {
 				assert.Equal(t, common.Bytes2Hex(val.Bytes()), dirtyAccount.Storage[common.Bytes2Hex(key.Bytes())])
 			}
+		}
+	}
+}
+
+func TestDumpDirtyCopy(t *testing.T) {
+	hash := common.HexToHash("01")
+	dump := &DirtyDump{
+		Root: common.Bytes2Hex(hash.Bytes()),
+		Accounts: map[string]DirtyDumpAccount{
+			"addr1": {
+				Balance: "100",
+			},
+			"addr2": {
+				Storage: map[string]string{
+					"addr2key1": "addr2value1",
+				},
+			},
+			"addr3": {
+				Balance: "300",
+				Storage: map[string]string{
+					"addr3key1": "addr3value1",
+				},
+			},
+		},
+	}
+	cpy := dump.Copy()
+	assert.Equal(t, dump.Root, cpy.Root)
+	for account, dirty := range dump.Accounts {
+		assert.Equal(t, dirty.Balance, cpy.Accounts[account].Balance,
+			"Balance should be equal want:%v, got:%v", dirty.Balance, cpy.Accounts[account].Balance)
+
+		if len(dirty.Storage) > 0 {
+			assert.True(t, reflect.DeepEqual(dirty.Storage, cpy.Accounts[account].Storage),
+				"Storate should be equal, want:%v, got:%v", dirty.Storage, cpy.Accounts[account].Storage)
 		}
 	}
 }
