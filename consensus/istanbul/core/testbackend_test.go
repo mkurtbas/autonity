@@ -122,7 +122,7 @@ func (self *testSystemBackend) CheckValidatorSignature(data []byte, sig []byte) 
 }
 
 func (self *testSystemBackend) Hash(b interface{}) common.Hash {
-	return common.StringToHash("Test")
+	return common.BytesToHash([]byte("Test"))
 }
 
 func (self *testSystemBackend) NewRequest(request istanbul.Proposal) {
@@ -265,7 +265,7 @@ func (t *testSystem) stop(core bool) {
 
 func (t *testSystem) NewBackend(id uint64) *testSystemBackend {
 	// assume always success
-	ethDB, _ := ethdb.NewMemDatabase()
+	ethDB := ethdb.NewMemDatabase()
 	backend := &testSystemBackend{
 		id:     id,
 		sys:    t,

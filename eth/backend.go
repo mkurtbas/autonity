@@ -345,9 +345,9 @@ func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 func (s *Ethereum) SetEtherbase(etherbase common.Address) {
 	s.lock.Lock()
 	if _, ok := s.engine.(consensus.Istanbul); ok {
-+		log.Error("Cannot set etherbase in Istanbul consensus")
-+		return
-+	}
+		log.Error("Cannot set etherbase in Istanbul consensus")
+		return
+	}
 	s.etherbase = etherbase
 	s.lock.Unlock()
 
