@@ -42,7 +42,7 @@ import (
 // other fake events to process Istanbul.
 func newBlockChain(n int) (*core.BlockChain, *backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
-	memDB, _ := ethdb.NewMemDatabase()
+	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
 	// Use the first key as private key
 	b, _ := New(config, nodeKeys[0], memDB).(*backend)
@@ -150,7 +150,7 @@ func TestPrepare(t *testing.T) {
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
-	header.ParentHash = common.StringToHash("1234567890")
+	header.ParentHash = common.BytesToHash([]byte("1234567890"))
 	err = engine.Prepare(chain, header)
 	if err != consensus.ErrUnknownAncestor {
 		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrUnknownAncestor)
@@ -250,7 +250,7 @@ func TestVerifyHeader(t *testing.T) {
 	// non zero MixDigest
 	block = makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	header = block.Header()
-	header.MixDigest = common.StringToHash("123456789")
+	header.MixDigest = common.BytesToHash([]byte("123456789"))
 	err = engine.VerifyHeader(chain, header, false)
 	if err != errInvalidMixDigest {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidMixDigest)
@@ -259,7 +259,7 @@ func TestVerifyHeader(t *testing.T) {
 	// invalid uncles hash
 	block = makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	header = block.Header()
-	header.UncleHash = common.StringToHash("123456789")
+	header.UncleHash = common.BytesToHash([]byte("123456789"))
 	err = engine.VerifyHeader(chain, header, false)
 	if err != errInvalidUncleHash {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidUncleHash)

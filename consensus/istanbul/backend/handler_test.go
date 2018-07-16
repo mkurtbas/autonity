@@ -19,11 +19,11 @@ package backend
 import (
 	"testing"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/istanbul"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 func TestIstanbulMessage(t *testing.T) {
@@ -33,7 +33,7 @@ func TestIstanbulMessage(t *testing.T) {
 	data := []byte("data1")
 	hash := istanbul.RLPHash(data)
 	msg := makeMsg(istanbulMsg, data)
-	addr := common.StringToAddress("address")
+	addr := common.BytesToAddress([]byte("address"))
 
 	// 1. this message should not be in cache
 	// for peers
