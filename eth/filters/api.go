@@ -168,6 +168,77 @@ func (api *PublicFilterAPI) NewPendingTransactions(ctx context.Context) (*rpc.Su
 	return rpcSub, nil
 }
 
+// NewQueuedTransactionFilter creates a filter that fetches queued transaction hashes
+// as transactions enter the pending state.
+//
+// It is part of the filter package because this filter can be used through the
+// `eth_getFilterChanges` polling method that is also used for log filters.
+func (api *PublicFilterAPI) NewQueuedTransactionFilter() rpc.ID {
+	var (
+		queuedTxs   = make(chan []common.Hash)
+		queuedTxSub = api.events.SubscribeQueuedTxs(queuedTxs)
+	)
+
+	api.filtersMu.Lock()
+	api.filters[queuedTxSub.ID] = &filter{typ: QueuedTransactionsSubscription, deadline: time.NewTimer(deadline), hashes: make([]common.Hash, 0), s: queuedTxSub}
+	api.filtersMu.Unlock()
+
+	go func() {
+		for {
+			select {
+			case ph := <-queuedTxs:
+				api.filtersMu.Lock()
+				if f, found := api.filters[queuedTxSub.ID]; found {
+					f.hashes = append(f.hashes, ph...)
+				}
+				api.filtersMu.Unlock()
+			case <-queuedTxSub.Err():
+				api.filtersMu.Lock()
+				delete(api.filters, queuedTxSub.ID)
+				api.filtersMu.Unlock()
+				return
+			}
+		}
+	}()
+
+	return queuedTxSub.ID
+}
+
+// NewQueuedTransactions creates a subscription that is triggered each time a transaction
+// enters the transaction pool and was signed from one of the transactions this nodes manages.
+func (api *PublicFilterAPI) NewQueuedTransactions(ctx context.Context) (*rpc.Subscription, error) {
+	notifier, supported := rpc.NotifierFromContext(ctx)
+	if !supported {
+		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
+	}
+
+	rpcSub := notifier.CreateSubscription()
+
+	go func() {
+		txHashes := make(chan []common.Hash, 128)
+		queuedTxSub := api.events.SubscribeQueuedTxs(txHashes)
+
+		for {
+			select {
+			case hashes := <-txHashes:
+				// To keep the original behaviour, send a single tx hash in one notification.
+				// TODO(rjl493456442) Send a batch of tx hashes in one notification
+				for _, h := range hashes {
+					notifier.Notify(rpcSub.ID, h)
+				}
+			case <-rpcSub.Err():
+				queuedTxSub.Unsubscribe()
+				return
+			case <-notifier.Closed():
+				queuedTxSub.Unsubscribe()
+				return
+			}
+		}
+	}()
+
+	return rpcSub, nil
+}
+
 // NewBlockFilter creates a filter that fetches blocks that are imported into the chain.
 // It is part of the filter package since polling goes with eth_getFilterChanges.
 //
@@ -424,7 +495,7 @@ func (api *PublicFilterAPI) GetFilterChanges(id rpc.ID) (interface{}, error) {
 		f.deadline.Reset(deadline)
 
 		switch f.typ {
-		case PendingTransactionsSubscription, BlocksSubscription:
+		case PendingTransactionsSubscription, QueuedTransactionsSubscription, BlocksSubscription:
 			hashes := f.hashes
 			f.hashes = nil
 			return returnHashes(hashes), nil
