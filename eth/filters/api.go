@@ -44,6 +44,7 @@ type filter struct {
 	typ      Type
 	deadline *time.Timer // filter is inactiv when deadline triggers
 	hashes   []common.Hash
+	txs      []*types.Transaction
 	crit     FilterCriteria
 	logs     []*types.Log
 	s        *Subscription // associated subscription in event system
@@ -175,7 +176,7 @@ func (api *PublicFilterAPI) NewPendingTransactions(ctx context.Context) (*rpc.Su
 // `eth_getFilterChanges` polling method that is also used for log filters.
 func (api *PublicFilterAPI) NewQueuedTransactionFilter() rpc.ID {
 	var (
-		queuedTxs   = make(chan []common.Hash)
+		queuedTxs   = make(chan []*types.Transaction)
 		queuedTxSub = api.events.SubscribeQueuedTxs(queuedTxs)
 	)
 
@@ -189,7 +190,7 @@ func (api *PublicFilterAPI) NewQueuedTransactionFilter() rpc.ID {
 			case ph := <-queuedTxs:
 				api.filtersMu.Lock()
 				if f, found := api.filters[queuedTxSub.ID]; found {
-					f.hashes = append(f.hashes, ph...)
+					f.txs = append(f.txs, ph...)
 				}
 				api.filtersMu.Unlock()
 			case <-queuedTxSub.Err():
@@ -215,12 +216,12 @@ func (api *PublicFilterAPI) NewQueuedTransactions(ctx context.Context) (*rpc.Sub
 	rpcSub := notifier.CreateSubscription()
 
 	go func() {
-		txHashes := make(chan []common.Hash, 128)
-		queuedTxSub := api.events.SubscribeQueuedTxs(txHashes)
+		txs := make(chan []*types.Transaction, 128)
+		queuedTxSub := api.events.SubscribeQueuedTxs(txs)
 
 		for {
 			select {
-			case hashes := <-txHashes:
+			case hashes := <-txs:
 				// To keep the original behaviour, send a single tx hash in one notification.
 				// TODO(rjl493456442) Send a batch of tx hashes in one notification
 				for _, h := range hashes {
@@ -495,10 +496,14 @@ func (api *PublicFilterAPI) GetFilterChanges(id rpc.ID) (interface{}, error) {
 		f.deadline.Reset(deadline)
 
 		switch f.typ {
-		case PendingTransactionsSubscription, QueuedTransactionsSubscription, BlocksSubscription:
+		case PendingTransactionsSubscription, BlocksSubscription:
 			hashes := f.hashes
 			f.hashes = nil
 			return returnHashes(hashes), nil
+		case QueuedTransactionsSubscription:
+			txs := f.txs
+			f.txs = nil
+			return returnTransactions(txs), nil
 		case LogsSubscription:
 			logs := f.logs
 			f.logs = nil
@@ -525,6 +530,15 @@ func returnLogs(logs []*types.Log) []*types.Log {
 		return []*types.Log{}
 	}
 	return logs
+}
+
+// returnTxs is a helper that will return an empty transaction array case the given transationcs array is nil,
+// otherwise the given transactions array is returned.
+func returnTransactions(txs []*types.Transaction) []*types.Transaction {
+	if txs == nil {
+		return []*types.Transaction{}
+	}
+	return txs
 }
 
 // UnmarshalJSON sets *args fields with given data.
