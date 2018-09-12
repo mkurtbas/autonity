@@ -317,7 +317,7 @@ func (ec *Client) SubscribePendingTransactions(ctx context.Context, ch chan<- co
 	return ec.c.EthSubscribe(ctx, ch, "newPendingTransactions")
 }
 
-func (ec *Client) SubscribeQueuedTransactions(ctx context.Context, ch chan<- common.Hash) (ethereum.Subscription, error) {
+func (ec *Client) SubscribeQueuedTransactions(ctx context.Context, ch chan<- *types.Transaction) (ethereum.Subscription, error) {
 	return ec.c.EthSubscribe(ctx, ch, "newQueuedTransactions")
 }
 
