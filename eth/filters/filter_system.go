@@ -87,6 +87,7 @@ type subscription struct {
 	logsCrit  ethereum.FilterQuery
 	logs      chan []*types.Log
 	hashes    chan []common.Hash
+	queuedTxs chan []*types.Transaction
 	headers   chan *types.Header
 	installed chan struct{} // closed when the filter is installed
 	err       chan error    // closed when the filter is uninstalled
@@ -184,6 +185,7 @@ func (sub *Subscription) Unsubscribe() {
 				break uninstallLoop
 			case <-sub.f.logs:
 			case <-sub.f.hashes:
+			case <-sub.f.queuedTxs:
 			case <-sub.f.headers:
 			}
 		}
@@ -251,6 +253,7 @@ func (es *EventSystem) subscribeMinedPendingLogs(crit ethereum.FilterQuery, logs
 		created:   time.Now(),
 		logs:      logs,
 		hashes:    make(chan []common.Hash),
+		queuedTxs: make(chan []*types.Transaction),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -268,6 +271,7 @@ func (es *EventSystem) subscribeLogs(crit ethereum.FilterQuery, logs chan []*typ
 		created:   time.Now(),
 		logs:      logs,
 		hashes:    make(chan []common.Hash),
+		queuedTxs: make(chan []*types.Transaction),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -285,6 +289,7 @@ func (es *EventSystem) subscribePendingLogs(crit ethereum.FilterQuery, logs chan
 		created:   time.Now(),
 		logs:      logs,
 		hashes:    make(chan []common.Hash),
+		queuedTxs: make(chan []*types.Transaction),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -301,6 +306,7 @@ func (es *EventSystem) SubscribeNewHeads(headers chan *types.Header) *Subscripti
 		created:   time.Now(),
 		logs:      make(chan []*types.Log),
 		hashes:    make(chan []common.Hash),
+		queuedTxs: make(chan []*types.Transaction),
 		headers:   headers,
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -317,6 +323,7 @@ func (es *EventSystem) SubscribePendingTxs(hashes chan []common.Hash) *Subscript
 		created:   time.Now(),
 		logs:      make(chan []*types.Log),
 		hashes:    hashes,
+		queuedTxs: make(chan []*types.Transaction),
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -326,13 +333,14 @@ func (es *EventSystem) SubscribePendingTxs(hashes chan []common.Hash) *Subscript
 
 // SubscribeQueuedTxs creates a subscription that writes transaction hashes for
 // transactions that enter the transaction pool.
-func (es *EventSystem) SubscribeQueuedTxs(hashes chan []common.Hash) *Subscription {
+func (es *EventSystem) SubscribeQueuedTxs(queuedTxs chan []*types.Transaction) *Subscription {
 	sub := &subscription{
 		id:        rpc.NewID(),
 		typ:       QueuedTransactionsSubscription,
 		created:   time.Now(),
 		logs:      make(chan []*types.Log),
-		hashes:    hashes,
+		hashes:    make(chan []common.Hash),
+		queuedTxs: queuedTxs,
 		headers:   make(chan *types.Header),
 		installed: make(chan struct{}),
 		err:       make(chan error),
@@ -381,13 +389,14 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 		for _, f := range filters[PendingTransactionsSubscription] {
 			f.hashes <- hashes
 		}
+		// return full tx
 	case core.NewQueuedTxsEvent:
-		hashes := make([]common.Hash, 0, len(e.Txs))
+		txs := make([]*types.Transaction, 0, len(e.Txs))
 		for _, tx := range e.Txs {
-			hashes = append(hashes, tx.Hash())
+			txs = append(txs, tx)
 		}
 		for _, f := range filters[QueuedTransactionsSubscription] {
-			f.hashes <- hashes
+			f.queuedTxs <- txs
 		}
 	case core.ChainEvent:
 		for _, f := range filters[BlocksSubscription] {
