@@ -82,7 +82,7 @@ func (h Hash) GetDenomId() (uint64, *big.Int){
 	tokenId := new(big.Int).SetBytes(h.Bytes()[1:32])
 	return tokenValue, tokenId
 }
-// returns the value and the std denom of the hash
+// set the value and the standard denom of a token
 func (h Hash) SetDenomId(denom uint64, id *big.Int) Hash {
 	tokenIdArray := id.Bytes()
 	if len(tokenIdArray) == 0 || denom  == 0 {
