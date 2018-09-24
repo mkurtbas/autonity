@@ -235,7 +235,13 @@ loop:
 	p.wg.Wait()
 	return remoteRequested, err
 }
+/*
+func (p *Peer) sendMessageThread(){
+	for{
+		case msg <- newMessage:
 
+	}
+}*/
 func (p *Peer) pingLoop() {
 	ping := time.NewTimer(pingInterval)
 	defer p.wg.Done()
@@ -385,22 +391,29 @@ type protoRW struct {
 }
 
 func (rw *protoRW) WriteMsg(msg Msg) (err error) {
-	if msg.Code >= rw.Length {
-		return newPeerError(errInvalidMsgCode, "not handled")
-	}
-	msg.Code += rw.offset
-	select {
-	case <-rw.wstart:
-		err = rw.w.WriteMsg(msg)
-		// Report write status back to Peer.run. It will initiate
-		// shutdown if the error is non-nil and unblock the next write
-		// otherwise. The calling protocol code should exit for errors
-		// as well but we don't want to rely on that.
-		rw.werr <- err
-	case <-rw.closed:
-		err = ErrShuttingDown
-	}
-	return err
+	//go func() {
+
+		if msg.Code >= rw.Length {
+			return newPeerError(errInvalidMsgCode, "not handled")
+		}
+		msg.Code += rw.offset
+		select {
+		case <-rw.wstart:
+			//go func() {
+				//time.Sleep(20 * time.Second)
+				err = rw.w.WriteMsg(msg)
+			//}()
+			// Report write status back to Peer.run. It will initiate
+			// shutdown if the error is non-nil and unblock the next write
+			// otherwise. The calling protocol code should exit for errors
+			// as well but we don't want to rely on that.
+			rw.werr <- err
+		case <-rw.closed:
+			err = ErrShuttingDown
+		}
+		return err
+	//}()
+	//return nil
 }
 
 func (rw *protoRW) ReadMsg() (Msg, error) {
