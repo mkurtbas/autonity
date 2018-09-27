@@ -191,6 +191,7 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 		writeStart = make(chan struct{}, 1)
 		writeErr   = make(chan error, 1)
 		readErr    = make(chan error, 1)
+		mux        = &sync.Mutex{}
 		reason     DiscReason // sent to the peer
 	)
 	p.wg.Add(2)
@@ -199,7 +200,7 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
-	p.startProtocols(writeStart, writeErr)
+	p.startProtocols(writeStart, writeErr, mux)
 
 	// Wait for an error or disconnect.
 loop:
@@ -345,13 +346,20 @@ outer:
 	return result
 }
 
-func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
+func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error, mux *sync.Mutex) {
 	p.wg.Add(len(p.running))
 	for _, proto := range p.running {
 		proto := proto
 		proto.closed = p.closed
 		proto.wstart = writeStart
 		proto.werr = writeErr
+		proto.mux = mux
+		fmt.Println("Node name:", p.Name())
+		fmt.Println("Node ID:", p.ID().String())
+		proto.delay = 250 * time.Millisecond
+		proto.lastError = nil
+		proto.lastDuration = 0
+
 		var rw MsgReadWriter = proto
 		if p.events != nil {
 			rw = newMsgEventer(rw, p.events, p.ID(), proto.Name)
@@ -390,10 +398,14 @@ type protoRW struct {
 	werr   chan<- error    // for write results
 	offset uint64
 	w      MsgWriter
+	mux    *sync.Mutex
+	delay  time.Duration
+	lastError error
+	lastDuration time.Duration
+
 }
 
 func (rw *protoRW) WriteMsg(msg Msg) (err error) {
-	//go func() {
 
 	if msg.Code >= rw.Length {
 		return newPeerError(errInvalidMsgCode, "not handled")
@@ -401,21 +413,29 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 	msg.Code += rw.offset
 	select {
 	case <-rw.wstart:
-		//go func() {
-		//time.Sleep(20 * time.Second)
-		err = rw.w.WriteMsg(msg)
-		//}()
+		go func() {
+			time.Sleep(rw.delay)
+			rw.mux.Lock()
+			timestart := time.Now()
+			rw.lastError = rw.w.WriteMsg(msg)
+			rw.lastDuration = time.Now().Sub(timestart)
+			rw.mux.Unlock()
+		}()
+
 		// Report write status back to Peer.run. It will initiate
 		// shutdown if the error is non-nil and unblock the next write
 		// otherwise. The calling protocol code should exit for errors
 		// as well but we don't want to rely on that.
+
+		time.Sleep(rw.lastDuration)
+		rw.mux.Lock()
+		err = rw.lastError
 		rw.werr <- err
+		rw.mux.Unlock()
 	case <-rw.closed:
 		err = ErrShuttingDown
 	}
 	return err
-	//}()
-	//return nil
 
 }
 

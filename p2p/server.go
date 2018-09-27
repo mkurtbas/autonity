@@ -142,7 +142,6 @@ type Config struct {
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
 
-	LatenciesMap map[string]int
 }
 
 // Server manages all peer connections.
@@ -150,6 +149,8 @@ type Server struct {
 	// Config fields may not be modified while the server is running.
 	Config
 
+	//Node id to latency for benchmarking
+	latenciesMap map[string]time.Duration
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
 	newTransport func(net.Conn) transport

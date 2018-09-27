@@ -173,12 +173,12 @@ func (s *Service) loop() {
 			select {
 			// Notify of chain head events, but drop if too frequent
 			case head := <-chainHeadCh:
-				fmt.Println("NEW CHAINHEAD RECEIVED")
+				//fmt.Println("NEW CHAINHEAD RECEIVED")
 				select {
 				case headCh <- head.Block:
-					fmt.Println("NEW HEAD SENT")
+					//fmt.Println("NEW HEAD SENT")
 				default:
-					fmt.Println("DROPPING")
+					//fmt.Println("DROPPING")
 				}
 
 			// Notify of new transaction events, but drop if too frequent
@@ -200,11 +200,11 @@ func (s *Service) loop() {
 					fmt.Println("BUG")
 					break HandleLoop*/
 			case <-headSub.Err():
-				fmt.Println("BUG")
+				//fmt.Println("BUG")
 				break HandleLoop
 			}
 		}
-		fmt.Println("CLOSING")
+		//fmt.Println("CLOSING")
 		close(quitCh)
 
 	}()
@@ -261,9 +261,9 @@ func (s *Service) loop() {
 			/*	case <-quitCh:
 				conn.Close()
 				return
-			*/fmt.Println("WAITING CHAN")
+			*///fmt.Println("WAITING CHAN")
 			head := <-headCh
-			fmt.Println("REPORTING")
+			//fmt.Println("REPORTING")
 			s.reportBlock(head)
 			s.reportPending()
 
@@ -527,11 +527,11 @@ func (s *Service) reportBlock(block *types.Block) error {
 		"emit": {"block", stats},
 	}
 	//Write data on file
-	fmt.Println("Start Printing JSON")
+	//fmt.Println("Start Printing JSON")
 	out, _ := json.Marshal(report)
 	s.blockLogFile.Write(out)
 	s.blockLogFile.WriteString("\n")
-	fmt.Println("Stop Printing JSON")
+	//fmt.Println("Stop Printing JSON")
 	//return websocket.JSON.Send(conn, report)
 	return nil
 
