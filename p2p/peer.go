@@ -112,13 +112,14 @@ type Peer struct {
 
 	// events receives message send / receive events if set
 	events *event.Feed
+	delay time.Duration
 }
 
 // NewPeer returns a peer for testing purposes.
 func NewPeer(id discover.NodeID, name string, caps []Cap) *Peer {
 	pipe, _ := net.Pipe()
 	conn := &conn{fd: pipe, transport: nil, id: id, caps: caps, name: name}
-	peer := newPeer(conn, nil)
+	peer := newPeer(conn, nil, 0)
 	close(peer.closed) // ensures Disconnect doesn't block
 	return peer
 }
@@ -168,7 +169,7 @@ func (p *Peer) Inbound() bool {
 	return p.rw.flags&inboundConn != 0
 }
 
-func newPeer(conn *conn, protocols []Protocol) *Peer {
+func newPeer(conn *conn, protocols []Protocol, latency time.Duration) *Peer {
 	protomap := matchProtocols(protocols, conn.caps, conn)
 	p := &Peer{
 		rw:       conn,
@@ -178,6 +179,7 @@ func newPeer(conn *conn, protocols []Protocol) *Peer {
 		protoErr: make(chan error, len(protomap)+1), // protocols + pingLoop
 		closed:   make(chan struct{}),
 		log:      log.New("id", conn.id, "conn", conn.flags),
+		delay:    latency,
 	}
 	return p
 }
@@ -356,7 +358,7 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error,
 		proto.mux = mux
 		fmt.Println("Node name:", p.Name())
 		fmt.Println("Node ID:", p.ID().String())
-		proto.delay = 250 * time.Millisecond
+		proto.delay = p.delay
 		proto.lastError = nil
 		proto.lastDuration = 0
 

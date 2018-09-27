@@ -18,10 +18,15 @@
 package p2p
 
 import (
+	"bufio"
 	"crypto/ecdsa"
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -417,6 +422,31 @@ func (srv *Server) Start() (err error) {
 	srv.peerOp = make(chan peerOpFunc)
 	srv.peerOpDone = make(chan struct{})
 
+	latFile, latExist := os.Open("latencies.data")
+	srv.latenciesMap = make(map[string]time.Duration)
+	if latExist != nil {
+		nodeID := discover.PubkeyID(&srv.PrivateKey.PublicKey).String()
+		fmt.Println("Node ID:", nodeID)
+		reader := csv.NewReader(bufio.NewReader(latFile))
+		for{
+			line, errorRead := reader.Read()
+			if errorRead == io.EOF {
+				break
+			} else if errorRead != nil {
+				fmt.Println("Error in latency file:",errorRead)
+				break
+			}
+			if line[0] ==  nodeID {
+				delay,errParsing := strconv.Atoi(line[2])
+				if errParsing == nil{
+					srv.latenciesMap[line[1]] = time.Duration(delay) * 1000 // delay is in microseconds
+				} else {
+					fmt.Println("Error parsing", line[2])
+				}
+			}
+		}
+	}
+
 	var (
 		conn      *net.UDPConn
 		sconn     *sharedUDPConn
@@ -639,7 +669,7 @@ running:
 			err := srv.protoHandshakeChecks(peers, inboundCount, c)
 			if err == nil {
 				// The handshakes are done and it passed all checks.
-				p := newPeer(c, srv.Protocols)
+				p := newPeer(c, srv.Protocols, srv.latenciesMap[c.id.String()])
 				// If message events are enabled, pass the peerFeed
 				// to the peer
 				if srv.EnableMsgEvents {
