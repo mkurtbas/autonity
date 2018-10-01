@@ -358,6 +358,7 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error,
 		proto.mux = mux
 		fmt.Println("Node name:", p.Name())
 		fmt.Println("Node ID:", p.ID().String())
+		fmt.Println("Delay:", p.delay)
 		proto.delay = p.delay
 		proto.lastError = nil
 		proto.lastDuration = 0

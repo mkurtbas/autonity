@@ -522,6 +522,7 @@ func (s *Service) reportBlock(block *types.Block) error {
 	stats := map[string]interface{}{
 		"id":    s.node,
 		"block": details,
+		"received_time": time.Now().Unix(),
 	}
 	report := map[string][]interface{}{
 		"emit": {"block", stats},

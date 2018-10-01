@@ -424,7 +424,7 @@ func (srv *Server) Start() (err error) {
 
 	latFile, latExist := os.Open("latencies.data")
 	srv.latenciesMap = make(map[string]time.Duration)
-	if latExist != nil {
+	if latExist == nil {
 		nodeID := discover.PubkeyID(&srv.PrivateKey.PublicKey).String()
 		fmt.Println("Node ID:", nodeID)
 		reader := csv.NewReader(bufio.NewReader(latFile))
@@ -445,6 +445,8 @@ func (srv *Server) Start() (err error) {
 				}
 			}
 		}
+	} else{
+		fmt.Println("Error latency file")
 	}
 
 	var (
