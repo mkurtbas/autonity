@@ -467,12 +467,8 @@ func GetDirtyStorage(config *params.ChainConfig, blockchain *core.BlockChain, nu
 
 	defer func() {
 		if err == nil {
-			stateErr := blockchain.WriteDirtyDump(hash, dump)
-			if stateErr != nil {
-				log.Warn("Failed to write dirty dump", "err", stateErr, "root", dump.Root)
-			} else {
-				log.Debug("Write dirty dump successfully", "root", dump.Root)
-			}
+			// Ignore write dirty dump error
+			blockchain.WriteDirtyDump(hash, dump)
 		}
 	}()
 
