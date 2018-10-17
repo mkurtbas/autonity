@@ -19,11 +19,11 @@ matrix:
       - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin quay.io/amis
       - make docker
       - make docker.push
-      if: branch = feature/indexer_diff_1.8.17 AND (NOT type IN (pull_request))
+      if: NOT type IN (pull_request)
     - stage: Staging Release
       script:
       - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin quay.io/amis
       - make docker
       - make docker.push
-      if: tag =~ ^indexer_diff_1.8.17/v
+      if: tag =~ ^indexer-([0-9]+.)+[0-9]+
       env: DOCKER_IMAGE_TAG="$TRAVIS_TAG"
