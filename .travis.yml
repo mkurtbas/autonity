@@ -19,7 +19,7 @@ matrix:
       - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin quay.io/amis
       - make docker
       - make docker.push
-      if: NOT type IN (pull_request)
+      if: branch =~ ^indexer-([0-9]+.)+[0-9]+ AND (NOT type IN (pull_request))
     - stage: Staging Release
       script:
       - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin quay.io/amis
