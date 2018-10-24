@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+// Instantiates a new EVM object which is required when creating or calling a deployed contract
 func getEVM(chain consensus.ChainReader, header *types.Header, coinbase, origin common.Address, statedb *state.StateDB) *vm.EVM {
 	GetHashFn := func(ref *types.Header) func(n uint64) common.Hash {
 		var cache map[uint64]common.Hash
@@ -61,8 +62,10 @@ func getEVM(chain consensus.ChainReader, header *types.Header, coinbase, origin 
 	return evm
 }
 
+// deployContract deploys the contract contained within the genesis field bytecode
 func deployContract(chain consensus.ChainReader, bytecodeStr string, userAddr common.Address, header *types.Header, statedb *state.StateDB) (common.Address, error) {
-	contractBytecode := common.Hex2Bytes(bytecodeStr[2:]) // [2:] removes 0x
+	// Convert the contract bytecode from hex into bytes
+	contractBytecode := common.Hex2Bytes(bytecodeStr[2:])
 
 	evm := getEVM(chain, header, userAddr, userAddr, statedb)
 
@@ -82,6 +85,8 @@ func deployContract(chain consensus.ChainReader, bytecodeStr string, userAddr co
 	return contractAddress, nil
 }
 
+// callActiveValidators queries the active validator set contained in the deployed Soma contract.
+// Returns true/false if the the address is an active validator and false if not.
 func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
 	// Byte encoding of booleans
 	expectedResult := "0000000000000000000000000000000000000000000000000000000000000001"
@@ -119,8 +124,8 @@ func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, 
 
 }
 
-// Calls the RecentValidators() function in the Soma governance smart contract. Returns true or false depending whether the
-// address is that of an recent validator
+// callRecentValidators queries the recent validator set contained in the deployed Soma contract.
+// Returns true if address is not a recent validator and false if they are.
 func callRecentValidators(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
 	// Byte encoding of booleans
 	expectedResult := "0000000000000000000000000000000000000000000000000000000000000000"
@@ -158,7 +163,7 @@ func callRecentValidators(chain consensus.ChainReader, userAddr common.Address, 
 
 }
 
-// updates the contract with the block submitter so that the validator set can be managed accordingly
+// updateGovernance when a validator attempts to submit a block the
 func updateGovernance(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, statedb *state.StateDB) error {
 	// Signature of function being called defined by Soma interface
 	functionSig := "UpdateGovernance()"
@@ -170,8 +175,6 @@ func updateGovernance(chain consensus.ChainReader, userAddr common.Address, cont
 	evm := getEVM(chain, header, userAddr, userAddr, statedb)
 
 	// Pad address for ABI encoding
-	encodedAddress := [32]byte{}
-	copy(encodedAddress[12:], userAddr[:])
 	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
 
 	// Call ActiveValidators()
@@ -184,7 +187,7 @@ func updateGovernance(chain consensus.ChainReader, userAddr common.Address, cont
 
 }
 
-// updates the contract with the block submitter so that the validator set can be managed accordingly
+// getThreshold returns the threshold of validators for use with calculating the correct out of turn wiggle
 func getThreshold(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) ([]byte, error) {
 	// Instantiate new state database
 	sdb := state.NewDatabase(db)
@@ -200,8 +203,6 @@ func getThreshold(chain consensus.ChainReader, userAddr common.Address, contract
 	evm := getEVM(chain, header, userAddr, userAddr, statedb)
 
 	// Pad address for ABI encoding
-	encodedAddress := [32]byte{}
-	copy(encodedAddress[12:], userAddr[:])
 	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
 
 	// Call ActiveValidators()

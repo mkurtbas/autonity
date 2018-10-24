@@ -27,7 +27,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -56,9 +55,6 @@ var (
 
 	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
-
-	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new signer
-	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a signer.
 
 	uncleHash = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 
@@ -210,7 +206,6 @@ type Soma struct {
 // New creates a Soma proof-of-authority consensus engine with the initial
 // signers set to the ones provided by the user.
 func New(config *params.SomaConfig, db ethdb.Database) *Soma {
-	log.Info("\n\t====================================== Running Soma ======================================")
 	// Set any missing consensus parameters to their defaults
 	conf := *config
 	if conf.Epoch == 0 {
@@ -280,13 +275,6 @@ func (c *Soma) verifyHeader(chain consensus.ChainReader, header *types.Header, p
 	if checkpoint && header.Coinbase != (common.Address{}) {
 		return errInvalidCheckpointBeneficiary
 	}
-	// Nonces must be 0x00..0 or 0xff..f, zeroes enforced on checkpoints
-	if !bytes.Equal(header.Nonce[:], nonceAuthVote) && !bytes.Equal(header.Nonce[:], nonceDropVote) {
-		return errInvalidVote
-	}
-	if checkpoint && !bytes.Equal(header.Nonce[:], nonceDropVote) {
-		return errInvalidCheckpointVote
-	}
 	// Check that the extra-data contains both the vanity and signature
 	if len(header.Extra) < extraVanity {
 		return errMissingVanity
@@ -351,84 +339,6 @@ func (c *Soma) verifyCascadingFields(chain consensus.ChainReader, header *types.
 	// All basic checks passed, verify the seal and return
 	return c.verifySeal(chain, header, parents)
 }
-
-// snapshot retrieves the authorization snapshot at a given point in time.
-// func (c *Soma) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header) (*Snapshot, error) {
-// 	// Search for a snapshot in memory or on disk for checkpoints
-// 	var (
-// 		headers []*types.Header
-// 		snap    *Snapshot
-// 	)
-// 	for snap == nil {
-// 		// If an in-memory snapshot was found, use that
-// 		if s, ok := c.recents.Get(hash); ok {
-// 			snap = s.(*Snapshot)
-// 			break
-// 		}
-// 		// If an on-disk checkpoint snapshot can be found, use that
-// 		if number%checkpointInterval == 0 {
-// 			if s, err := loadSnapshot(c.config, c.signatures, c.db, hash); err == nil {
-// 				log.Trace("Loaded voting snapshot from disk", "number", number, "hash", hash)
-// 				snap = s
-// 				break
-// 			}
-// 		}
-// 		// If we're at block zero, make a snapshot
-// 		if number == 0 {
-// 			genesis := chain.GetHeaderByNumber(0)
-// 			if err := c.VerifyHeader(chain, genesis, false); err != nil {
-// 				return nil, err
-// 			}
-// 			signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
-// 			for i := 0; i < len(signers); i++ {
-// 				copy(signers[i][:], genesis.Extra[extraVanity+i*common.AddressLength:])
-// 			}
-// 			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers)
-// 			if err := snap.store(c.db); err != nil {
-// 				return nil, err
-// 			}
-// 			log.Trace("Stored genesis voting snapshot to disk")
-// 			break
-// 		}
-// 		// No snapshot for this header, gather the header and move backward
-// 		var header *types.Header
-// 		if len(parents) > 0 {
-// 			// If we have explicit parents, pick from there (enforced)
-// 			header = parents[len(parents)-1]
-// 			if header.Hash() != hash || header.Number.Uint64() != number {
-// 				return nil, consensus.ErrUnknownAncestor
-// 			}
-// 			parents = parents[:len(parents)-1]
-// 		} else {
-// 			// No explicit parents (or no more left), reach out to the database
-// 			header = chain.GetHeader(hash, number)
-// 			if header == nil {
-// 				return nil, consensus.ErrUnknownAncestor
-// 			}
-// 		}
-// 		headers = append(headers, header)
-// 		number, hash = number-1, header.ParentHash
-// 	}
-
-// 	// Previous snapshot found, apply any pending headers on top of it
-// 	for i := 0; i < len(headers)/2; i++ {
-// 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
-// 	}
-// 	snap, err := snap.apply(headers)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	c.recents.Add(snap.Hash, snap)
-
-// 	// If we've generated a new checkpoint snapshot, save to disk
-// 	if snap.Number%checkpointInterval == 0 && len(headers) > 0 {
-// 		if err = snap.store(c.db); err != nil {
-// 			return nil, err
-// 		}
-// 		log.Trace("Stored voting snapshot to disk", "number", snap.Number, "hash", snap.Hash)
-// 	}
-// 	return snap, err
-// }
 
 // VerifyUncles implements consensus.Engine, always returning an error for any
 // uncles as this consensus mechanism doesn't permit uncles.
@@ -639,7 +549,6 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 		wiggle := time.Duration(size.Int64()+int64(1)) * wiggleTime
 		delay += time.Duration(rand.Int63n(int64(wiggle)))
 
-		log.Info("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 	}
 	log.Trace("Waiting for slot to sign and propagate", "delay", common.PrettyDuration(delay))
@@ -667,6 +576,14 @@ func (c *Soma) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *
 	return calcDifficulty(chain, parent, c)
 }
 
+// checkSigner tterates through the genesis signers to see if the sealer is included
+func checkSigner(genesisSigner common.Address, signer common.Address) bool {
+	if genesisSigner == signer {
+		return true
+	}
+	return false
+}
+
 // APIs implements consensus.Engine, returning the user facing RPC API to allow
 // controlling the signer voting.
 func (c *Soma) APIs(chain consensus.ChainReader) []rpc.API {
@@ -676,13 +593,4 @@ func (c *Soma) APIs(chain consensus.ChainReader) []rpc.API {
 		Service:   &API{chain: chain, soma: c},
 		Public:    false,
 	}}
-}
-
-// Iterates through the genesis signers to see if the sealer is included, as this only occurs for
-// block 1 this is mor efficient than creating some storage struct upon initialisation
-func checkSigner(genesisSigner common.Address, signer common.Address) bool {
-	if genesisSigner == signer {
-		return true
-	}
-	return false
 }

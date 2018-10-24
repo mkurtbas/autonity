@@ -21,6 +21,7 @@ var Modules = map[string]string{
 	"admin":      Admin_JS,
 	"chequebook": Chequebook_JS,
 	"clique":     Clique_JS,
+	"soma":       Soma_JS,
 	"debug":      Debug_JS,
 	"eth":        Eth_JS,
 	"miner":      Miner_JS,
@@ -104,6 +105,19 @@ web3._extend({
 		new web3._extend.Property({
 			name: 'proposals',
 			getter: 'clique_proposals'
+		}),
+	]
+});
+`
+
+const Soma_JS = `
+web3._extend({
+	property: 'soma',
+	methods: [
+		new web3._extend.Method({
+			name: 'getGovernanceAddress',
+			call: 'soma_getGovernanceAddress',
+			params: 0
 		}),
 	]
 });
