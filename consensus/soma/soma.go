@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package soma implements the proof-of-authority consensus engine.
+// Package soma implements the proof-of-authority consensus engine where the authorities
+// are persisted in a smart contract deployed by the sealer of block 1, defined in the
+// genesis JSON.
 package soma
 
 import (
@@ -356,9 +358,9 @@ func (c *Soma) VerifySeal(chain consensus.ChainReader, header *types.Header) err
 }
 
 // verifySeal checks whether the signature contained in the header satisfies the
-// consensus protocol requirements. The method accepts an optional list of parent
-// headers that aren't yet part of the local blockchain to generate the snapshots
-// from.
+// consensus protocol requirements. The checks are made through querying the Soma
+// governance contract. The method accepts an optional list of parent headers that
+// aren't yet part of the local blockchain to generate the snapshotsfrom.
 func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
@@ -440,7 +442,9 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 }
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
-// rewards given, and returns the final block.
+// rewards given, and returns the final block. On block 1 it deploys the Soma
+// governance contract which persists the array of active and recent validators.
+// All other blocks it also updates the contract with the previous block signer.
 func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// Deploy Soma on-chain governance contract
 	if header.Number.Int64() == 1 {
@@ -486,7 +490,9 @@ func (c *Soma) Authorize(signer common.Address, signFn SignerFn) {
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
-// the local signing credentials.
+// the local signing credentials. The sealed block fails if credentials are not
+// from an active or recent validator depending on the rules implemented in the
+// Soma ogvernance contract.
 func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
 
@@ -576,7 +582,7 @@ func (c *Soma) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *
 	return calcDifficulty(chain, parent, c)
 }
 
-// checkSigner tterates through the genesis signers to see if the sealer is included
+// checkSigner tterates through the Soma governance contract to see if the sealer is included
 func checkSigner(genesisSigner common.Address, signer common.Address) bool {
 	if genesisSigner == signer {
 		return true
