@@ -119,6 +119,21 @@ web3._extend({
 			call: 'soma_getGovernanceAddress',
 			params: 0
 		}),
+		new web3._extend.Method({
+			name: 'getValidatorsAtBlock',
+			call: 'soma_getValidatorsAtBlock',
+			params: 1
+		}),
+		new web3._extend.Method({
+			name: 'getRecentsAtBlock',
+			call: 'soma_getRecentsAtBlock',
+			params: 1
+		}),
+		new web3._extend.Method({
+			name: 'getThresholdAtBlock',
+			call: 'soma_getThresholdAtBlock',
+			params: 1
+		}),
 	]
 });
 `

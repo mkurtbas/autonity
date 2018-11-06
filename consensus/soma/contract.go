@@ -152,7 +152,6 @@ func callRecentValidators(chain consensus.ChainReader, userAddr common.Address, 
 	if vmerr != nil {
 		return false, vmerr
 	}
-
 	// Check result
 	if hex.EncodeToString(ret) == expectedResult {
 		return true, nil
@@ -219,6 +218,7 @@ func getThreshold(chain consensus.ChainReader, userAddr common.Address, contract
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
 func calcDifficulty(chain consensus.ChainReader, parent *types.Header, soma *Soma) *big.Int {
+	log.Info("CalcDifficulty", "ParentHash", chain.CurrentHeader().ParentHash)
 	if parent.Number.Uint64() == 1 {
 		if soma.config.Deployer == soma.signer {
 			return new(big.Int).Set(diffInTurn)

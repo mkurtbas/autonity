@@ -17,8 +17,14 @@
 package soma
 
 import (
+	"encoding/hex"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting
@@ -28,7 +34,101 @@ type API struct {
 	soma  *Soma
 }
 
+// GetGovernanceAddress returns the address to which the governance is deployed
 func (api *API) GetGovernanceAddress() common.Address {
 	// Return the address of the governance contract
 	return api.soma.somaContract
+}
+
+// GetValidatorsAtBlock returns validators at block N
+func (api *API) GetValidatorsAtBlock(number uint64) (string, error) {
+	// Get header
+	header := api.chain.GetHeaderByNumber(number)
+
+	// Instantiate new state database
+	sdb := state.NewDatabase(api.soma.db)
+	statedb, _ := state.New(header.Root, sdb)
+
+	// Signature of function being called defined by Soma interface
+	functionSig := "getValidators()"
+
+	sender := vm.AccountRef(api.soma.signer)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+
+	evm := getEVM(api.chain, header, api.soma.signer, api.soma.signer, statedb)
+
+	// Pad address for ABI encoding
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
+
+	// Call ActiveValidators()
+	ret, gas, vmerr := evm.Call(sender, api.soma.somaContract, input, gas, value)
+	if vmerr != nil {
+		return "VM Error", vmerr
+	}
+
+	return hex.EncodeToString(ret), vmerr
+
+}
+
+// GetRecentsAtBlock returns validators at block N
+func (api *API) GetRecentsAtBlock(number uint64) (string, error) {
+	// Get header
+	header := api.chain.GetHeaderByNumber(number)
+
+	// Instantiate new state database
+	sdb := state.NewDatabase(api.soma.db)
+	statedb, _ := state.New(header.Root, sdb)
+
+	// Signature of function being called defined by Soma interface
+	functionSig := "getRecents()"
+
+	sender := vm.AccountRef(api.soma.signer)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+
+	evm := getEVM(api.chain, header, api.soma.signer, api.soma.signer, statedb)
+
+	// Pad address for ABI encoding
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
+
+	// Call ActiveValidators()
+	ret, gas, vmerr := evm.Call(sender, api.soma.somaContract, input, gas, value)
+	if vmerr != nil {
+		return "VM Error", vmerr
+	}
+
+	return hex.EncodeToString(ret), vmerr
+
+}
+
+// GetThresholdAtBlock returns validators at block N
+func (api *API) GetThresholdAtBlock(number uint64) (string, error) {
+	// Get header
+	header := api.chain.GetHeaderByNumber(number)
+
+	// Instantiate new state database
+	sdb := state.NewDatabase(api.soma.db)
+	statedb, _ := state.New(header.Root, sdb)
+
+	// Signature of function being called defined by Soma interface
+	functionSig := "threshold()"
+
+	sender := vm.AccountRef(api.soma.signer)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+
+	evm := getEVM(api.chain, header, api.soma.signer, api.soma.signer, statedb)
+
+	// Pad address for ABI encoding
+	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
+
+	// Call ActiveValidators()
+	ret, gas, vmerr := evm.Call(sender, api.soma.somaContract, input, gas, value)
+	if vmerr != nil {
+		return "VM Error", vmerr
+	}
+
+	return hex.EncodeToString(ret), vmerr
+
 }

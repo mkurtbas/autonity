@@ -21,7 +21,9 @@ package soma
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	golog "log"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -261,7 +263,7 @@ func (c *Soma) VerifyHeaders(chain consensus.ChainReader, headers []*types.Heade
 // verifyHeader checks whether a header conforms to the consensus rules.The
 // caller may optionally pass in a batch of parents (ascending order) to avoid
 // looking those up from the database. This is useful for concurrently verifying
-// a batch of new headers.
+// a batch of new headers.callActiveValidators
 func (c *Soma) verifyHeader(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
 	if header.Number == nil {
 		return errUnknownBlock
@@ -324,6 +326,7 @@ func (c *Soma) verifyCascadingFields(chain consensus.ChainReader, header *types.
 	if number == 0 {
 		return nil
 	}
+	// printStruct(header)
 	// Ensure that the block's timestamp isn't too close to it's parent
 	var parent *types.Header
 	if len(parents) > 0 {
@@ -332,10 +335,20 @@ func (c *Soma) verifyCascadingFields(chain consensus.ChainReader, header *types.
 		parent = chain.GetHeader(header.ParentHash, number-1)
 	}
 	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
+		log.Info("ERRRORRRRRR>>>>>>", "Block", parent.Number.Uint64())
 		return consensus.ErrUnknownAncestor
 	}
 	if parent.Time.Uint64()+c.config.Period > header.Time.Uint64() {
 		return ErrInvalidTimestamp
+	}
+
+	// Check if state root in current header is in DB if not ask for pruned trie
+	sdb := state.NewDatabase(c.db)
+	stateRoot := parent.Root
+	value, err := sdb.TrieDB().Node(stateRoot)
+	if value == nil || err != nil {
+		log.Info("verifyCascadingFields()", "no state root found in db", stateRoot)
+		return consensus.ErrPrunedAncestor
 	}
 
 	// All basic checks passed, verify the seal and return
@@ -382,22 +395,23 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		}
 	} else {
 		// Check signer is active validator
-		authorized, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
-		if err != nil {
-			return err
-		}
-		if !authorized {
-			log.Info("Unauthorized VerifySeal")
-			return errUnauthorized
-		}
-
-		// If we're amongst the recent signers, wait for the next block
-		result, err := callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		result, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
 			return err
 		}
 		if !result {
-			log.Info("Unauthorized VerifySeal")
+			log.Info("Unauthorized VerifySeal - Validator Inactive")
+			return errUnauthorized
+		}
+
+		// If we're amongst the recent signers, wait for the next block
+		result, err = callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		if err != nil {
+			return err
+		}
+		if !result {
+			log.Info("Current Header", "Current Header Number", chain.CurrentHeader().Number, "Header Number", header.Number)
+			log.Info("Unauthorized VerifySeal - Validator Signed Recently")
 			return errUnauthorized
 		}
 
@@ -414,9 +428,11 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 	header.Nonce = types.BlockNonce{}
 
 	number := header.Number.Uint64()
-	parentHeader := chain.GetHeaderByNumber(number - 1)
 
-	header.Difficulty = calcDifficulty(chain, parentHeader, c)
+	// XXX: YOU CANNOT DO THIS
+	// parentHeader := chain.GetHeaderByNumber(number - 1)
+	// header.Difficulty = calcDifficulty(chain, parentHeader, c)
+	header.Difficulty = big.NewInt(1)
 
 	// Ensure the extra data has all it's components
 	if len(header.Extra) < extraVanity {
@@ -463,7 +479,7 @@ func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, state
 			if err != nil {
 				return nil, err
 			}
-			log.Info("Updating Governance", "Block", header.Number.Uint64(), "Signer", signer)
+			log.Info("Updating Governance - External Sealer", "Block", header.Number.Uint64(), "Signer", signer)
 			updateGovernance(chain, signer, c.somaContract, header, statedb)
 		} else {
 			log.Info("Updating Governance", "Block", header.Number.Uint64(), "Signer", c.signer)
@@ -533,7 +549,6 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 		if err != nil {
 			return nil, err
 		}
-
 		if !result {
 			// Note: This error will occur if account is not authorized to mine!
 			log.Info("Account not active validator, wait for others to sign block or use active validator to mine!")
@@ -599,4 +614,16 @@ func (c *Soma) APIs(chain consensus.ChainReader) []rpc.API {
 		Service:   &API{chain: chain, soma: c},
 		Public:    false,
 	}}
+}
+
+func printStruct(structVar interface{}) {
+	rlpBytes, err := rlp.EncodeToBytes(structVar)
+	if err != nil {
+		golog.Fatal(err)
+	}
+	jsonTx, err := json.MarshalIndent(structVar, "\t", "  ")
+	if err != nil {
+		golog.Fatal(err)
+	}
+	golog.Printf("Tx:\n%s\nrlp: 0x%x\n", string(jsonTx), rlpBytes)
 }
