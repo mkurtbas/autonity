@@ -433,6 +433,7 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 	// XXX: YOU CANNOT DO THIS
 	parentHeader := chain.GetHeaderByNumber(number - 1)
 	header.Difficulty = calcDifficulty(chain, parentHeader, c)
+	log.Info("Prepare()", "Difficulty", header.Difficulty)
 	//header.Difficulty = big.NewInt(1)
 
 	// Ensure the extra data has all it's components
@@ -567,6 +568,7 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 	size := new(big.Int)
 	size.SetBytes(ret)
 	log.Info("Validators", "Number", size)
+	log.Info("Difficulty", "Number", header.Difficulty, "Validators", c.signer)
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
 		wiggle := time.Duration(size.Int64()+int64(1)) * wiggleTime

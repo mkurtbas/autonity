@@ -304,7 +304,7 @@ func calcDifficulty(chain consensus.ChainReader, parent *types.Header, soma *Som
 		return new(big.Int).Set(diffNoTurn)
 	} else {
 		result, _ := calculateDifficulty(chain, soma.signer, soma.somaContract, parent, soma.db)
-		if result.Uint64() == 1 {
+		if result.Uint64() == 2 {
 			return new(big.Int).Set(diffInTurn)
 		}
 		return new(big.Int).Set(diffNoTurn)

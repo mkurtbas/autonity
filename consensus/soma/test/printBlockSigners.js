@@ -5,7 +5,7 @@ const Web3 = require('web3');
 const secp256k1 = require('secp256k1')
 const Buffer = require('safe-buffer').Buffer
 
-const CONTRACT_ADDRESS = '0xa4b794510e992936ae8c43bc3511a84ecc2e5d06'
+const CONTRACT_ADDRESS = '0x325e08c6ca2b28253ae2280403ba9095895109f3'
 
 const ecrecover = (msgHash, v, r, s, chainId) => {
   const signature = Buffer.concat([r,s], 64)
@@ -78,7 +78,20 @@ const printHeader =  async header => {
 
 
   console.log(`Block number: ${header.number.toString().padStart(5,0)} \
-Signer(accounts[${signerIndex.toString().padStart(2,0)}]): ${signerAddress}`)
+Signer(accounts[${signerIndex.toString().padStart(2,0)}]): ${signerAddress} \
+Block Hash: ${header.hash} Parent Hash: ${header.parentHash}`)
+}
+
+const getThreshold = async (contractAddr) => {
+  const thresholdFunc = web3.utils.sha3('threshold()')
+  const callRet = await web3.eth.call({ to: contractAddr, data: thresholdFunc})
+  console.log(callRet.slice(2))
+}
+
+const getVotes = async (contractAddr) => {
+  const thresholdFunc = web3.utils.sha3('vote()')
+  const callRet = await web3.eth.call({ to: contractAddr, data: thresholdFunc})
+  console.log(callRet.slice(2))
 }
 
 const getValidators = async (contractAddr) => {
@@ -107,8 +120,8 @@ const castVote = async (contractAddr, from, candidate) => {
   const castVoteFunc = web3.utils.sha3('CastVote(address)').slice(0,(4*2)+2)
   const argument = candidate.slice(2).padStart(32*2,0)
   const data = castVoteFunc+argument
-  const tx = { from, to: contractAddr, data, gas: "0xffffffff" }
-  await web3.eth.personal.unlockAccount(from,'xxx',600)
+  const tx = { from, to: contractAddr, data, gas: "0xffffff" }
+  await web3.eth.personal.unlockAccount(from,'password',600)
   return web3.eth.sendTransaction(tx)
 }
 
@@ -160,6 +173,16 @@ const onKeyPress = async key => {
       await listAccounts()
       console.log('================================================\n')
       break
+    case 'c':
+      console.log('\n================== Vote========================')
+      await getVotes(CONTRACT_ADDRESS)
+      console.log('================================================\n')
+      break
+    case 't':
+      console.log('\n================== Threshold ===================')
+      await getThreshold(CONTRACT_ADDRESS)
+      console.log('================================================\n')
+      break
     case 'q':
       process.exit()
       break
@@ -167,8 +190,10 @@ const onKeyPress = async key => {
       console.log('\n================== Help ==================\n'
         + '(+): cast a vote to add validator (the first on accounts that is not a validator)\n'
         + '(-): cast a vote to remove validator (the last on the list of validators)\n'
-        + '(v): print lis of validators\n'
-        + '(l): print lis of accounts\n'
+        + '(t): print validator turn threshold\n'
+        + '(c): print validator vote threshold\n'
+        + '(v): print list of validators\n'
+        + '(l): print list of accounts\n'
         + '(q): quit\n'
         + '===========================================\n'
       )
@@ -184,6 +209,6 @@ process.stdin.setRawMode(true)
 process.stdin.on('data', onKeyPress)
 
 // Using the IPC provider in node.js
-const web3 = new Web3('/home/doart3/soma_instance/data_node_0/geth.ipc', net);
+const web3 = new Web3('/home/user97/repos/network-setups/network-geth/data_node_1/geth.ipc', net);
 // subscribe
 web3.eth.subscribe('newBlockHeaders').on("data", printHeader).on("error", console.error)
