@@ -629,8 +629,10 @@ func (c *Clique) Seal(chain consensus.ChainReader, block *types.Block, stop <-ch
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
-		wiggle := time.Duration(len(snap.Signers)/2+1) * wiggleTime
-		delay += time.Duration(rand.Int63n(int64(wiggle)))
+		// wiggle := time.Duration(1) * wiggleTime
+		wiggle := 0
+		// wiggle := time.Duration(len(snap.Signers)/2+1) * wiggleTime
+		// delay += time.Duration(rand.Int63n(int64(wiggle)))
 
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 	}
@@ -655,7 +657,6 @@ func (c *Clique) Seal(chain consensus.ChainReader, block *types.Block, stop <-ch
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
 func (c *Clique) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	log.Info("Is This Called????")
 	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
 	if err != nil {
 		return nil

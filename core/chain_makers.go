@@ -27,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -146,7 +145,6 @@ func (b *BlockGen) PrevBlock(index int) *types.Block {
 // associated difficulty. It's useful to test scenarios where forking is not
 // tied to chain length directly.
 func (b *BlockGen) OffsetTime(seconds int64) {
-	log.Info("OffsetTime()")
 	b.header.Time.Add(b.header.Time, new(big.Int).SetInt64(seconds))
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
@@ -225,7 +223,6 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 }
 
 func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
-	log.Info("makeHeader()")
 	var time *big.Int
 	if parent.Time() == nil {
 		time = big.NewInt(10)

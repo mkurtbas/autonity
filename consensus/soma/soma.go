@@ -336,7 +336,6 @@ func (c *Soma) verifyCascadingFields(chain consensus.ChainReader, header *types.
 		parent = chain.GetHeader(header.ParentHash, number-1)
 	}
 	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
-		log.Info("ERRRORRRRRR>>>>>>", "Block", parent.Number.Uint64())
 		return consensus.ErrUnknownAncestor
 	}
 	if parent.Time.Uint64()+c.config.Period > header.Time.Uint64() {
@@ -348,7 +347,8 @@ func (c *Soma) verifyCascadingFields(chain consensus.ChainReader, header *types.
 	stateRoot := parent.Root
 	value, err := sdb.TrieDB().Node(stateRoot)
 	if value == nil || err != nil {
-		log.Info("verifyCascadingFields()", "no state root found in db", stateRoot)
+		log.Info("verifyCascadingFields()", "no state root found in db", stateRoot, "Block", number)
+		log.Info("Error:", "  ", err)
 		return consensus.ErrPrunedAncestor
 	}
 
@@ -376,6 +376,7 @@ func (c *Soma) VerifySeal(chain consensus.ChainReader, header *types.Header) err
 // governance contract. The method accepts an optional list of parent headers that
 // aren't yet part of the local blockchain to generate the snapshotsfrom.
 func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+	golog.Println("VerifySeal()")
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -385,6 +386,7 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 	// Resolve the authorization key and check against signers
 	signer, err := ecrecover(header, c.signatures)
 	if err != nil {
+		golog.Println("ecrecover()")
 		return err
 	}
 
@@ -398,6 +400,7 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		// Check signer is active validator
 		result, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
+			golog.Println("callActiveValidators()", "Error:", err)
 			return err
 		}
 		if !result {
@@ -408,6 +411,7 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		// If we're amongst the recent signers, wait for the next block
 		result, err = callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
+			golog.Println("callRecentValidators()")
 			return err
 		}
 		if result {
@@ -430,11 +434,8 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 
 	number := header.Number.Uint64()
 
-	// XXX: YOU CANNOT DO THIS
 	parentHeader := chain.GetHeaderByNumber(number - 1)
 	header.Difficulty = calcDifficulty(chain, parentHeader, c)
-	log.Info("Prepare()", "Difficulty", header.Difficulty)
-	//header.Difficulty = big.NewInt(1)
 
 	// Ensure the extra data has all it's components
 	if len(header.Extra) < extraVanity {
@@ -512,6 +513,7 @@ func (c *Soma) Authorize(signer common.Address, signFn SignerFn) {
 // from an active or recent validator depending on the rules implemented in the
 // Soma ogvernance contract.
 func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
+	log.Info("Seal()")
 	header := block.Header()
 
 	// Sealing the genesis block is not supported
@@ -561,14 +563,12 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
-	ret, err := getValsNumber(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+	ret, err := validatorSize(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 	if err != nil {
 		return nil, err
 	}
 	size := new(big.Int)
 	size.SetBytes(ret)
-	log.Info("Validators", "Number", size)
-	log.Info("Difficulty", "Number", header.Difficulty, "Validators", c.signer)
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
 		wiggle := time.Duration(size.Int64()+int64(1)) * wiggleTime
@@ -598,7 +598,6 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
 func (c *Soma) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	log.Info("Is this ever called????")
 	return calcDifficulty(chain, parent, c)
 }
 

@@ -109,20 +109,25 @@ func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, 
 
 	// Call ActiveValidators()
 	ret, gas, vmerr := evm.StaticCall(sender, contractAddress, inputData, gas)
+	golog.Printf("RETURN: %v", ret)
+	golog.Printf("RETURN: %x", vmerr)
 	if vmerr != nil {
+		log.Info("staticCall()", "err", vmerr)
 		return false, vmerr
 	}
 
 	const def = `[{ "name" : "method", "outputs": [{ "type": "bool" }] }]`
 	funcAbi, err := abi.JSON(strings.NewReader(def))
 	if err != nil {
+		log.Info("abi()", "err", vmerr)
 		return false, vmerr
 	}
 
 	var output bool
 	err = funcAbi.Unpack(&output, "method", ret)
 	if err != nil {
-		return false, err
+		log.Info("unpack()", "err", err)
+		return false, consensus.ErrPrunedAncestor
 	}
 
 	return output, nil
@@ -171,6 +176,7 @@ func callRecentValidators(chain consensus.ChainReader, userAddr common.Address, 
 }
 
 func calculateDifficulty(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (*big.Int, error) {
+	golog.Println("CalculateDifficulty()")
 	// Signature of function being called defined by Soma interface
 	functionSig := "calculateDifficulty(address)"
 
@@ -197,16 +203,16 @@ func calculateDifficulty(chain consensus.ChainReader, userAddr common.Address, c
 	const def = `[{"name" : "int", "constant" : false, "outputs": [ { "type": "uint256" } ]}]`
 	funcAbi, err := abi.JSON(strings.NewReader(def))
 	if err != nil {
-		return big.NewInt(1), vmerr
+		return big.NewInt(1), consensus.ErrPrunedAncestor
 	}
 
 	// marshal int
 	var Int *big.Int
 	err = funcAbi.Unpack(&Int, "int", ret)
-	log.Info("calculateDifficulty", "Difficulty", Int)
 	if err != nil {
-		golog.Println(err)
-		return big.NewInt(1), vmerr
+		golog.Println("Error: ", err)
+		return big.NewInt(1), consensus.ErrPrunedAncestor
+		// return big.NewInt(1), vmerr
 	}
 
 	return Int, nil
@@ -261,17 +267,16 @@ func getThreshold(chain consensus.ChainReader, userAddr common.Address, contract
 	}
 
 	return ret, nil
-
 }
 
-// getThreshold returns the threshold of validators for use with calculating the correct out of turn wiggle
-func getValsNumber(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) ([]byte, error) {
+// validatorSize returns the threshold of validators for use with calculating the correct out of turn wiggle
+func validatorSize(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) ([]byte, error) {
 	// Instantiate new state database
 	sdb := state.NewDatabase(db)
 	statedb, _ := state.New(header.Root, sdb)
 
 	// Signature of function being called defined by Soma interface
-	functionSig := "getValsNumber()"
+	functionSig := "validatorSize()"
 
 	sender := vm.AccountRef(userAddr)
 	gas := uint64(0xFFFFFFFF)
@@ -296,7 +301,6 @@ func getValsNumber(chain consensus.ChainReader, userAddr common.Address, contrac
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
 func calcDifficulty(chain consensus.ChainReader, parent *types.Header, soma *Soma) *big.Int {
-	log.Info("CalcDifficulty", "ParentHash", chain.CurrentHeader().ParentHash)
 	if parent.Number.Uint64() == 1 {
 		if soma.config.Deployer == soma.signer {
 			return new(big.Int).Set(diffInTurn)
