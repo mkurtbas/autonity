@@ -304,7 +304,8 @@ func (c *Soma) verifyHeader(chain consensus.ChainReader, header *types.Header, p
 	}
 	// Ensure that the block's difficulty is meaningful (may not be correct at this point)
 	if number > 0 {
-		if header.Difficulty == nil || (header.Difficulty.Cmp(diffInTurn) != 0 && header.Difficulty.Cmp(diffNoTurn) != 0) {
+		if header.Difficulty == nil {
+			// if header.Difficulty == nil || (header.Difficulty.Cmp(diffInTurn) != 0 && header.Difficulty.Cmp(diffNoTurn) != 0) {
 			return errInvalidDifficulty
 		}
 	}
@@ -409,7 +410,7 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		if err != nil {
 			return err
 		}
-		if !result {
+		if result {
 			log.Info("Current Header", "Current Header Number", chain.CurrentHeader().Number, "Header Number", header.Number)
 			log.Info("Unauthorized VerifySeal - Validator Signed Recently")
 			return errUnauthorized
@@ -430,9 +431,9 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 	number := header.Number.Uint64()
 
 	// XXX: YOU CANNOT DO THIS
-	// parentHeader := chain.GetHeaderByNumber(number - 1)
-	// header.Difficulty = calcDifficulty(chain, parentHeader, c)
-	header.Difficulty = big.NewInt(1)
+	parentHeader := chain.GetHeaderByNumber(number - 1)
+	header.Difficulty = calcDifficulty(chain, parentHeader, c)
+	//header.Difficulty = big.NewInt(1)
 
 	// Ensure the extra data has all it's components
 	if len(header.Extra) < extraVanity {
@@ -549,7 +550,7 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 		if err != nil {
 			return nil, err
 		}
-		if !result {
+		if result {
 			// Note: This error will occur if account is not authorized to mine!
 			log.Info("Account not active validator, wait for others to sign block or use active validator to mine!")
 			<-stop
@@ -559,12 +560,13 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
-	ret, err := getThreshold(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+	ret, err := getValsNumber(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 	if err != nil {
 		return nil, err
 	}
 	size := new(big.Int)
 	size.SetBytes(ret)
+	log.Info("Validators", "Number", size)
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
 		wiggle := time.Duration(size.Int64()+int64(1)) * wiggleTime
@@ -594,6 +596,7 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
 func (c *Soma) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+	log.Info("Is this ever called????")
 	return calcDifficulty(chain, parent, c)
 }
 

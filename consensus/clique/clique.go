@@ -655,6 +655,7 @@ func (c *Clique) Seal(chain consensus.ChainReader, block *types.Block, stop <-ch
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
 func (c *Clique) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+	log.Info("Is This Called????")
 	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
 	if err != nil {
 		return nil
@@ -667,8 +668,10 @@ func (c *Clique) CalcDifficulty(chain consensus.ChainReader, time uint64, parent
 // current signer.
 func CalcDifficulty(snap *Snapshot, signer common.Address) *big.Int {
 	if snap.inturn(snap.Number+1, signer) {
+		log.Info("CalcDifficulty()", "Difficulty", diffInTurn)
 		return new(big.Int).Set(diffInTurn)
 	}
+	log.Info("CalcDifficulty()", "Difficulty", diffNoTurn)
 	return new(big.Int).Set(diffNoTurn)
 }
 
