@@ -348,7 +348,6 @@ func (c *Soma) verifyCascadingFields(chain consensus.ChainReader, header *types.
 	value, err := sdb.TrieDB().Node(stateRoot)
 	if value == nil || err != nil {
 		log.Info("verifyCascadingFields()", "no state root found in db", stateRoot, "Block", number)
-		log.Info("Error:", "  ", err)
 		return consensus.ErrPrunedAncestor
 	}
 
@@ -376,7 +375,7 @@ func (c *Soma) VerifySeal(chain consensus.ChainReader, header *types.Header) err
 // governance contract. The method accepts an optional list of parent headers that
 // aren't yet part of the local blockchain to generate the snapshotsfrom.
 func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
-	golog.Println("VerifySeal()")
+	log.Info("VerifySeal()", "Block", header.Number)
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -400,7 +399,6 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		// Check signer is active validator
 		result, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
-			golog.Println("callActiveValidators()", "Error:", err)
 			return err
 		}
 		if !result {
@@ -411,11 +409,13 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		// If we're amongst the recent signers, wait for the next block
 		result, err = callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
-			golog.Println("callRecentValidators()")
 			return err
 		}
 		if result {
 			log.Info("Current Header", "Current Header Number", chain.CurrentHeader().Number, "Header Number", header.Number)
+			if header.ParentHash != chain.CurrentHeader().Root {
+				return consensus.ErrPrunedAncestor
+			}
 			log.Info("Unauthorized VerifySeal - Validator Signed Recently")
 			return errUnauthorized
 		}
@@ -435,6 +435,7 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 	number := header.Number.Uint64()
 
 	parentHeader := chain.GetHeaderByNumber(number - 1)
+	// log.Info("Prepare()", "Current:", number, "Previous", parentHeader.Number)
 	header.Difficulty = calcDifficulty(chain, parentHeader, c)
 
 	// Ensure the extra data has all it's components
@@ -482,10 +483,8 @@ func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, state
 			if err != nil {
 				return nil, err
 			}
-			log.Info("Updating Governance - External Sealer", "Block", header.Number.Uint64(), "Signer", signer)
 			updateGovernance(chain, signer, c.somaContract, header, statedb)
 		} else {
-			log.Info("Updating Governance", "Block", header.Number.Uint64(), "Signer", c.signer)
 			updateGovernance(chain, c.signer, c.somaContract, header, statedb)
 		}
 	}

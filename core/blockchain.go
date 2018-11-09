@@ -1100,7 +1100,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			continue
 
 		case err == consensus.ErrPrunedAncestor:
-			log.Info("err==prunedAncestor")
 			// Block competing with the canonical chain, store in the db, but don't process
 			// until the competitor TD goes above the canonical TD
 			currentBlock := bc.CurrentBlock()

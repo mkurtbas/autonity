@@ -109,25 +109,24 @@ func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, 
 
 	// Call ActiveValidators()
 	ret, gas, vmerr := evm.StaticCall(sender, contractAddress, inputData, gas)
-	golog.Printf("RETURN: %v", ret)
-	golog.Printf("RETURN: %x", vmerr)
+	if len(ret) == 0 {
+		log.Info("callActiveValidators(): No return value")
+		return false, consensus.ErrPrunedAncestor
+	}
 	if vmerr != nil {
-		log.Info("staticCall()", "err", vmerr)
 		return false, vmerr
 	}
 
 	const def = `[{ "name" : "method", "outputs": [{ "type": "bool" }] }]`
 	funcAbi, err := abi.JSON(strings.NewReader(def))
 	if err != nil {
-		log.Info("abi()", "err", vmerr)
 		return false, vmerr
 	}
 
 	var output bool
 	err = funcAbi.Unpack(&output, "method", ret)
 	if err != nil {
-		log.Info("unpack()", "err", err)
-		return false, consensus.ErrPrunedAncestor
+		return false, err
 	}
 
 	return output, nil
@@ -176,7 +175,6 @@ func callRecentValidators(chain consensus.ChainReader, userAddr common.Address, 
 }
 
 func calculateDifficulty(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (*big.Int, error) {
-	golog.Println("CalculateDifficulty()")
 	// Signature of function being called defined by Soma interface
 	functionSig := "calculateDifficulty(address)"
 
@@ -203,16 +201,14 @@ func calculateDifficulty(chain consensus.ChainReader, userAddr common.Address, c
 	const def = `[{"name" : "int", "constant" : false, "outputs": [ { "type": "uint256" } ]}]`
 	funcAbi, err := abi.JSON(strings.NewReader(def))
 	if err != nil {
-		return big.NewInt(1), consensus.ErrPrunedAncestor
+		return big.NewInt(1), err
 	}
 
 	// marshal int
 	var Int *big.Int
 	err = funcAbi.Unpack(&Int, "int", ret)
 	if err != nil {
-		golog.Println("Error: ", err)
 		return big.NewInt(1), consensus.ErrPrunedAncestor
-		// return big.NewInt(1), vmerr
 	}
 
 	return Int, nil
@@ -234,6 +230,9 @@ func updateGovernance(chain consensus.ChainReader, userAddr common.Address, cont
 
 	// Call ActiveValidators()
 	_, gas, vmerr := evm.Call(sender, contractAddress, input, gas, value)
+	golog.Println(functionSig)
+	golog.Println(vmerr)
+
 	if vmerr != nil {
 		return vmerr
 	}
@@ -309,8 +308,10 @@ func calcDifficulty(chain consensus.ChainReader, parent *types.Header, soma *Som
 	} else {
 		result, _ := calculateDifficulty(chain, soma.signer, soma.somaContract, parent, soma.db)
 		if result.Uint64() == 2 {
+			log.Info("CalcDifficulty()", "Difficulty", diffInTurn)
 			return new(big.Int).Set(diffInTurn)
 		}
+		log.Info("CalcDifficulty()", "Difficulty", diffNoTurn)
 		return new(big.Int).Set(diffNoTurn)
 	}
 }
