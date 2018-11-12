@@ -1,7 +1,6 @@
 package soma
 
 import (
-	golog "log"
 	"math/big"
 	"strings"
 
@@ -110,9 +109,10 @@ func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, 
 	// Call ActiveValidators()
 	ret, gas, vmerr := evm.StaticCall(sender, contractAddress, inputData, gas)
 	if len(ret) == 0 {
-		log.Info("callActiveValidators(): No return value")
+		log.Info("callActiveValidators(): No return value", "Block", header.Number.Int64())
 		return false, consensus.ErrPrunedAncestor
 	}
+
 	if vmerr != nil {
 		return false, vmerr
 	}
@@ -230,8 +230,6 @@ func updateGovernance(chain consensus.ChainReader, userAddr common.Address, cont
 
 	// Call ActiveValidators()
 	_, gas, vmerr := evm.Call(sender, contractAddress, input, gas, value)
-	golog.Println(functionSig)
-	golog.Println(vmerr)
 
 	if vmerr != nil {
 		return vmerr
@@ -308,10 +306,8 @@ func calcDifficulty(chain consensus.ChainReader, parent *types.Header, soma *Som
 	} else {
 		result, _ := calculateDifficulty(chain, soma.signer, soma.somaContract, parent, soma.db)
 		if result.Uint64() == 2 {
-			log.Info("CalcDifficulty()", "Difficulty", diffInTurn)
 			return new(big.Int).Set(diffInTurn)
 		}
-		log.Info("CalcDifficulty()", "Difficulty", diffNoTurn)
 		return new(big.Int).Set(diffNoTurn)
 	}
 }

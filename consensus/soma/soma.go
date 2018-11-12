@@ -375,7 +375,6 @@ func (c *Soma) VerifySeal(chain consensus.ChainReader, header *types.Header) err
 // governance contract. The method accepts an optional list of parent headers that
 // aren't yet part of the local blockchain to generate the snapshotsfrom.
 func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
-	log.Info("VerifySeal()", "Block", header.Number)
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -385,7 +384,6 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 	// Resolve the authorization key and check against signers
 	signer, err := ecrecover(header, c.signatures)
 	if err != nil {
-		golog.Println("ecrecover()")
 		return err
 	}
 
@@ -412,7 +410,6 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 			return err
 		}
 		if result {
-			log.Info("Current Header", "Current Header Number", chain.CurrentHeader().Number, "Header Number", header.Number)
 			if header.ParentHash != chain.CurrentHeader().Root {
 				return consensus.ErrPrunedAncestor
 			}
@@ -477,16 +474,24 @@ func (c *Soma) Finalize(chain consensus.ChainReader, header *types.Header, state
 		c.somaContract = contractAddress
 
 	} else {
+		// Check if state root in current header is in DB if not ask for pruned trie
+		if c.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
+			c.somaContract = crypto.CreateAddress(c.config.Deployer, 0)
+		}
+
 		emptyByteVar := make([]byte, 65)
 		if !bytes.Equal(header.Extra[len(header.Extra)-extraSeal:], emptyByteVar) {
 			signer, err := c.Author(header)
 			if err != nil {
 				return nil, err
 			}
+			log.Info("Updating Governance External:", "Signer", signer, "Block", header.Number.Int64())
 			updateGovernance(chain, signer, c.somaContract, header, statedb)
 		} else {
+			log.Info("Updating Governance Local:", "Signer", c.signer, "Block", header.Number.Int64())
 			updateGovernance(chain, c.signer, c.somaContract, header, statedb)
 		}
+
 	}
 
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
@@ -512,7 +517,6 @@ func (c *Soma) Authorize(signer common.Address, signFn SignerFn) {
 // from an active or recent validator depending on the rules implemented in the
 // Soma ogvernance contract.
 func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
-	log.Info("Seal()")
 	header := block.Header()
 
 	// Sealing the genesis block is not supported
@@ -620,13 +624,14 @@ func (c *Soma) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 func printStruct(structVar interface{}) {
-	rlpBytes, err := rlp.EncodeToBytes(structVar)
-	if err != nil {
-		golog.Fatal(err)
-	}
+	// rlpBytes, err := rlp.EncodeToBytes(structVar)
+	// if err != nil {
+	// 	golog.Fatal(err)
+	// }
 	jsonTx, err := json.MarshalIndent(structVar, "\t", "  ")
 	if err != nil {
 		golog.Fatal(err)
 	}
-	golog.Printf("Tx:\n%s\nrlp: 0x%x\n", string(jsonTx), rlpBytes)
+	// golog.Printf("Tx:\n%s\nrlp: 0x%x\n", string(jsonTx), rlpBytes)
+	golog.Printf("Tx:\n%s\n", string(jsonTx))
 }
