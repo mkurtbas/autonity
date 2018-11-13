@@ -433,10 +433,6 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 
 	number := header.Number.Uint64()
 
-	parentHeader := chain.GetHeaderByNumber(number - 1)
-	// log.Info("Prepare()", "Current:", number, "Previous", parentHeader.Number)
-	header.Difficulty = calcDifficulty(chain, parentHeader, c)
-
 	// Ensure the extra data has all it's components
 	if len(header.Extra) < extraVanity {
 		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
@@ -453,6 +449,7 @@ func (c *Soma) Prepare(chain consensus.ChainReader, header *types.Header) error 
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
+	header.Difficulty = calcDifficulty(chain, parent, c)
 	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(c.config.Period))
 	if header.Time.Int64() < time.Now().Unix() {
 		header.Time = big.NewInt(time.Now().Unix())
