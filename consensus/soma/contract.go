@@ -86,12 +86,9 @@ func deployContract(chain consensus.ChainReader, bytecodeStr string, userAddr co
 	return contractAddress, nil
 }
 
-// callActiveValidators queries the active validator set contained in the deployed Soma contract.
+// contractCallAddress queries the Soma contract, for any functions that take and address as argument.
 // Returns true/false if the the address is an active validator and false if not.
-func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
-	// Signature of function being called defined by Soma interface
-	functionSig := "Validator(address)"
-
+func contractCallAddress(functionSig string, chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
 	// Instantiate new state database
 	sdb := state.NewDatabase(db)
 	statedb, _ := state.New(header.Root, sdb)
@@ -109,7 +106,7 @@ func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, 
 	// Call ActiveValidators()
 	ret, gas, vmerr := evm.StaticCall(sender, contractAddress, inputData, gas)
 	if len(ret) == 0 {
-		log.Info("callActiveValidators(): No return value", "Block", header.Number.Int64())
+		log.Info("contractCallAddress(): No return value", "Block", header.Number.Int64())
 		return false, consensus.ErrPrunedAncestor
 	}
 
@@ -132,49 +129,8 @@ func callActiveValidators(chain consensus.ChainReader, userAddr common.Address, 
 	return output, nil
 }
 
-// callRecentValidators queries the recent validator set contained in the deployed Soma contract.
-// Returns true if address is not a recent validator and false if they are.
-func callRecentValidators(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (bool, error) {
-	// Signature of function being called defined by Soma interface
-	functionSig := "RecentValidator(address)"
-
-	// Instantiate new state database
-	sdb := state.NewDatabase(db)
-	statedb, _ := state.New(header.Root, sdb)
-
-	sender := vm.AccountRef(userAddr)
-	gas := uint64(0xFFFFFFFF)
-	evm := getEVM(chain, header, userAddr, userAddr, statedb)
-
-	// Pad address for ABI encoding
-	encodedAddress := [32]byte{}
-	copy(encodedAddress[12:], userAddr[:])
-	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
-	inputData := append(input[:], encodedAddress[:]...)
-
-	// Call ActiveValidators()
-	ret, gas, vmerr := evm.StaticCall(sender, contractAddress, inputData, gas)
-	if vmerr != nil {
-		return false, vmerr
-	}
-
-	const def = `[{ "name" : "method", "outputs": [{ "type": "bool" }] }]`
-	funcAbi, err := abi.JSON(strings.NewReader(def))
-	if err != nil {
-		return false, vmerr
-	}
-
-	var output bool
-	err = funcAbi.Unpack(&output, "method", ret)
-	if err != nil {
-		return false, err
-	}
-
-	return output, nil
-
-}
-
-func calculateDifficulty(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (*big.Int, error) {
+// callContractDifficulty calls contract to find the difficulty for a specific validator returns an int either 1 or 2
+func callContractDifficulty(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) (*big.Int, error) {
 	// Signature of function being called defined by Soma interface
 	functionSig := "calculateDifficulty(address)"
 
@@ -239,14 +195,11 @@ func updateGovernance(chain consensus.ChainReader, userAddr common.Address, cont
 
 }
 
-// getThreshold returns the threshold of validators for use with calculating the correct out of turn wiggle
-func getThreshold(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) ([]byte, error) {
+// contractCall calls a contract function with the input functionSig this MUST NOT take any arguments
+func contractCall(functionSig string, chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) ([]byte, error) {
 	// Instantiate new state database
 	sdb := state.NewDatabase(db)
 	statedb, _ := state.New(header.Root, sdb)
-
-	// Signature of function being called defined by Soma interface
-	functionSig := "threshold()"
 
 	sender := vm.AccountRef(userAddr)
 	gas := uint64(0xFFFFFFFF)
@@ -264,34 +217,6 @@ func getThreshold(chain consensus.ChainReader, userAddr common.Address, contract
 	}
 
 	return ret, nil
-}
-
-// validatorSize returns the threshold of validators for use with calculating the correct out of turn wiggle
-func validatorSize(chain consensus.ChainReader, userAddr common.Address, contractAddress common.Address, header *types.Header, db ethdb.Database) ([]byte, error) {
-	// Instantiate new state database
-	sdb := state.NewDatabase(db)
-	statedb, _ := state.New(header.Root, sdb)
-
-	// Signature of function being called defined by Soma interface
-	functionSig := "validatorSize()"
-
-	sender := vm.AccountRef(userAddr)
-	gas := uint64(0xFFFFFFFF)
-	value := new(big.Int).SetUint64(0x00)
-
-	evm := getEVM(chain, header, userAddr, userAddr, statedb)
-
-	// Pad address for ABI encoding
-	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()
-
-	// Call ActiveValidators()
-	ret, gas, vmerr := evm.Call(sender, contractAddress, input, gas, value)
-	if vmerr != nil {
-		return nil, vmerr
-	}
-
-	return ret, nil
-
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
@@ -304,7 +229,7 @@ func calcDifficulty(chain consensus.ChainReader, parent *types.Header, soma *Som
 		}
 		return new(big.Int).Set(diffNoTurn)
 	} else {
-		result, _ := calculateDifficulty(chain, soma.signer, soma.somaContract, parent, soma.db)
+		result, _ := callContractDifficulty(chain, soma.signer, soma.somaContract, parent, soma.db)
 		if result.Uint64() == 2 {
 			return new(big.Int).Set(diffInTurn)
 		}

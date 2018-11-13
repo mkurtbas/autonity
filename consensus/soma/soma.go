@@ -395,7 +395,8 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		}
 	} else {
 		// Check signer is active validator
-		result, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		result, err := contractCallAddress("Validator(address)", chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		// result, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
 			return err
 		}
@@ -405,7 +406,8 @@ func (c *Soma) verifySeal(chain consensus.ChainReader, header *types.Header, par
 		}
 
 		// If we're amongst the recent signers, wait for the next block
-		result, err = callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		// result, err = callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		result, err = contractCallAddress("RecentValidator(address)", chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
 			return err
 		}
@@ -543,7 +545,8 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 			return nil, nil
 		}
 	} else {
-		result, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		// result, err := callActiveValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		result, err := contractCallAddress("Validator(address)", chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
 			return nil, err
 		}
@@ -552,7 +555,8 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 		}
 
 		// If we're amongst the recent signers, wait for the next block
-		result, err = callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		// result, err = callRecentValidators(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+		result, err = contractCallAddress("RecentValidator(address)", chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 		if err != nil {
 			return nil, err
 		}
@@ -566,7 +570,8 @@ func (c *Soma) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
-	ret, err := validatorSize(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+	ret, err := contractCall("validatorSize()", chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
+	// ret, err := validatorSize(chain, signer, c.somaContract, chain.CurrentHeader(), c.db)
 	if err != nil {
 		return nil, err
 	}

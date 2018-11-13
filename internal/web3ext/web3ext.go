@@ -139,11 +139,6 @@ web3._extend({
 			call: 'soma_getActivesAtBlock',
 			params: 1
 		}),
-		new web3._extend.Method({
-			name: 'getDifficultyAtBlock',
-			call: 'soma_getDifficultyAtBlock',
-			params: 2
-		}),
 	]
 });
 `

@@ -17,8 +17,7 @@
 package soma
 
 import (
-	"encoding/hex"
-	golog "log"
+	"errors"
 	"math/big"
 	"strings"
 
@@ -45,6 +44,11 @@ func (api *API) GetGovernanceAddress() common.Address {
 
 // GetValidatorsAtBlock returns validators at block N
 func (api *API) GetValidatorsAtBlock(number uint64) ([]common.Address, error) {
+	// Make sure the number is not ahead of the latest block
+	if number > api.chain.CurrentHeader().Number.Uint64() {
+		return nil, errors.New("Error: Block not mined yet")
+	}
+
 	// Get header
 	header := api.chain.GetHeaderByNumber(number)
 
@@ -88,6 +92,11 @@ func (api *API) GetValidatorsAtBlock(number uint64) ([]common.Address, error) {
 
 // GetRecentsAtBlock returns validators at block N
 func (api *API) GetRecentsAtBlock(number uint64) ([]common.Address, error) {
+	// Make sure the number is not ahead of the latest block
+	if number > api.chain.CurrentHeader().Number.Uint64() {
+		return nil, errors.New("Error: Block not mined yet")
+	}
+
 	// Get header
 	header := api.chain.GetHeaderByNumber(number)
 
@@ -129,8 +138,13 @@ func (api *API) GetRecentsAtBlock(number uint64) ([]common.Address, error) {
 
 }
 
-// GetRecentsAtBlock returns validators at block N
+// GetActivesAtBlock returns validators at block N
 func (api *API) GetActivesAtBlock(number uint64) ([]common.Address, error) {
+	// Make sure the number is not ahead of the latest block
+	if number > api.chain.CurrentHeader().Number.Uint64() {
+		return nil, errors.New("Error: Block not mined yet")
+	}
+
 	// Get header
 	header := api.chain.GetHeaderByNumber(number)
 
@@ -173,7 +187,12 @@ func (api *API) GetActivesAtBlock(number uint64) ([]common.Address, error) {
 }
 
 // GetThresholdAtBlock returns validators at block N
-func (api *API) GetThresholdAtBlock(number uint64) (string, error) {
+func (api *API) GetThresholdAtBlock(number uint64) (*big.Int, error) {
+	// Make sure the number is not ahead of the latest block
+	if number > api.chain.CurrentHeader().Number.Uint64() {
+		return big.NewInt(0), errors.New("Error: Block not mined yet")
+	}
+
 	// Get header
 	header := api.chain.GetHeaderByNumber(number)
 
@@ -196,54 +215,20 @@ func (api *API) GetThresholdAtBlock(number uint64) (string, error) {
 	// Call ActiveValidators()
 	ret, gas, vmerr := evm.Call(sender, api.soma.somaContract, input, gas, value)
 	if vmerr != nil {
-		return "VM Error", vmerr
+		return big.NewInt(1), vmerr
 	}
 
-	return hex.EncodeToString(ret), vmerr
-
-}
-
-// GetDifficultyAtBlock Duarte says HELLOOOO
-func (api *API) GetDifficultyAtBlock(number uint64, addr common.Address) (*big.Int, error) {
-	// Get header
-	header := api.chain.GetHeaderByNumber(number)
-
-	// Instantiate new state database
-	sdb := state.NewDatabase(api.soma.db)
-	statedb, _ := state.New(header.Root, sdb)
-
-	// Signature of function being called defined by Soma interface
-	functionSig := "calculateDifficulty(address)"
-
-	sender := vm.AccountRef(api.soma.signer)
-	gas := uint64(0xFFFFFFFF)
-
-	evm := getEVM(api.chain, header, api.soma.signer, api.soma.signer, statedb)
-
-	// Pad address for ABI encoding
-	encodedAddress := [32]byte{}
-	copy(encodedAddress[12:], addr[:])
-	input := crypto.Keccak256Hash([]byte(functionSig)).Bytes()[:4]
-	inputData := append(input[:], encodedAddress[:]...)
-
-	// Call ActiveValidators()
-	ret, gas, vmerr := evm.StaticCall(sender, api.soma.somaContract, inputData, gas)
-	if vmerr != nil {
-		return big.NewInt(0), vmerr
-	}
-
-	const def = `[{ "name" : "int", "outputs": [{ "type": "uint256" }] }]`
+	const def = `[{"name" : "int", "constant" : false, "outputs": [ { "type": "uint256" } ]}]`
 	funcAbi, err := abi.JSON(strings.NewReader(def))
 	if err != nil {
-		return big.NewInt(0), vmerr
+		return big.NewInt(1), err
 	}
 
 	// marshal int
 	var Int *big.Int
 	err = funcAbi.Unpack(&Int, "int", ret)
 	if err != nil {
-		golog.Println(err)
-		return big.NewInt(0), vmerr
+		return big.NewInt(1), consensus.ErrPrunedAncestor
 	}
 
 	return Int, nil
