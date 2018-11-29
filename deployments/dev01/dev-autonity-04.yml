@@ -43,6 +43,8 @@ spec:
         - containerPort: 30343
           name: p2p
         args:
+          - "--config"
+          - "/efs/04/config.toml"
           - "--nodiscover"
           - "--syncmode"
           - "fast"
