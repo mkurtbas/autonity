@@ -59,6 +59,7 @@ func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 	// If it is old message, see if we need to broadcast COMMIT
 	if err := c.checkMessage(msgPreprepare, preprepare.View); err != nil {
 		if err == errOldMessage {
+			//TODO : EIP Says ignore?
 			// Get validator set for the given proposal
 			valSet := c.backend.ParentValidators(preprepare.Proposal).Copy()
 			previousProposer := c.backend.GetProposer(preprepare.Proposal.Number().Uint64() - 1)
@@ -84,6 +85,7 @@ func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 	if duration, err := c.backend.Verify(preprepare.Proposal); err != nil {
 		logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		// if it's a future block, we will handle it again after the duration
+		// TIME FIELD OF HEADER CHECKED HERE - NOT HEIGHT
 		if err == consensus.ErrFutureBlock {
 			c.stopFuturePreprepareTimer()
 			c.futurePreprepareTimer = time.AfterFunc(duration, func() {
@@ -106,7 +108,7 @@ func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 				// Broadcast COMMIT and enters Prepared state directly
 				c.acceptPreprepare(preprepare)
 				c.setState(StatePrepared)
-				c.sendCommit()
+				c.sendCommit() // TODO : double check, why not PREPARE?
 			} else {
 				// Send round change
 				c.sendNextRoundChange()

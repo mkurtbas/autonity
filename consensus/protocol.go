@@ -28,6 +28,7 @@ const (
 	Eth63 = 63
 )
 
+// Todo : Change the way is being done
 var (
 	EthProtocol = Protocol{
 		Name:     "eth",

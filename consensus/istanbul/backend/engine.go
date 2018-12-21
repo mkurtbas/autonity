@@ -181,6 +181,7 @@ func (sb *backend) verifyCascadingFields(chain consensus.ChainReader, header *ty
 	for i, validator := range snap.validators() {
 		copy(validators[i*common.AddressLength:], validator[:])
 	}
+	// TODO : perform the actual check on the validators
 	if err := sb.verifySigner(chain, header, parents); err != nil {
 		return err
 	}
@@ -392,6 +393,7 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
+// TODO : to be updated for 1.8.19 , make it asynchronous, add the worker resultCh
 func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	// update the block header timestamp and signature and propose the block to core engine
 	header := block.Header()
@@ -437,6 +439,7 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, stop <-
 		Proposal: block,
 	})
 
+	// Todo: wrap it with a go routine
 	for {
 		select {
 		case result := <-sb.commitCh:
@@ -527,6 +530,7 @@ func (sb *backend) Stop() error {
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
+// TODO : compare with clique
 func (sb *backend) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
@@ -668,7 +672,7 @@ func prepareExtra(header *types.Header, vals []common.Address) ([]byte, error) {
 // writeSeal writes the extra-data field of the given header with the given seals.
 // suggest to rename to writeSeal.
 func writeSeal(h *types.Header, seal []byte) error {
-	if len(seal)%types.IstanbulExtraSeal != 0 {
+	if len(seal)%types.IstanbulExtraSeal != 0 { // TODO :  len(seal) != types.IstanbulExtraSeal
 		return errInvalidSignature
 	}
 
@@ -703,7 +707,6 @@ func writeCommittedSeals(h *types.Header, committedSeals [][]byte) error {
 	if err != nil {
 		return err
 	}
-
 	istanbulExtra.CommittedSeal = make([][]byte, len(committedSeals))
 	copy(istanbulExtra.CommittedSeal, committedSeals)
 
