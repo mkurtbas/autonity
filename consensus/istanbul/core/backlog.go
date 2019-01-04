@@ -107,7 +107,7 @@ func (c *core) storeBacklog(msg *message, src istanbul.Validator) {
 			backlog.Push(msg, toPriority(msg.Code, p.View))
 		}
 	}
-	c.backlogs[src] = backlog
+	c.backlogs[src] = backlog //TODO: why is there a need to reassign the priority queue?
 }
 
 func (c *core) processBacklog() {
@@ -176,7 +176,8 @@ func toPriority(msgCode uint64, view *istanbul.View) float32 {
 		return -float32(view.Sequence.Uint64() * 1000)
 	}
 	// FIXME: round will be reset as 0 while new sequence
-	// 10 * Round limits the range of message code is from 0 to 9
+	// 10 * Round limits the range of message code is from 0 to 9, TODO: Why is this not 100?
 	// 1000 * Sequence limits the range of round is from 0 to 99
+	// TODO: I think the priority is not been used properly
 	return -float32(view.Sequence.Uint64()*1000 + view.Round.Uint64()*10 + uint64(msgPriority[msgCode]))
 }

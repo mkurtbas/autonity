@@ -202,7 +202,7 @@ func (c *core) startNewRound(round *big.Int) {
 		}
 		logger.Trace("Catch up latest proposal", "number", lastProposal.Number().Uint64(), "hash", lastProposal.Hash())
 	} else if lastProposal.Number().Cmp(big.NewInt(c.current.Sequence().Int64()-1)) == 0 {
-		if round.Cmp(common.Big0) == 0 { //TODO : Bug ?
+		if round.Cmp(common.Big0) == 0 { //TODO : Bug? I think it should be round.Cmp(c.current.Round()) == 0, based on the comment.
 			// same seq and round, don't need to start new round
 			return
 		} else if round.Cmp(c.current.Round()) < 0 {

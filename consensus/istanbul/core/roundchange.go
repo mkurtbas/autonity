@@ -102,7 +102,7 @@ func (c *core) handleRoundChange(msg *message, src istanbul.Validator) error {
 		// We've received 2f+1 ROUND CHANGE messages, start a new round immediately.
 		c.startNewRound(roundView.Round)
 		return nil
-	} else if cv.Round.Cmp(roundView.Round) < 0 {
+	} else if cv.Round.Cmp(roundView.Round) < 0 { // TODO: is this a mistake? cv.Round.Cmp(roundView.Round) >= 0
 		// Only gossip the message with current round to other validators.
 		return errIgnored
 	}
