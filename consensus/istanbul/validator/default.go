@@ -94,7 +94,7 @@ func (valSet *defaultSet) GetByIndex(i uint64) istanbul.Validator {
 }
 
 func (valSet *defaultSet) GetByAddress(addr common.Address) (int, istanbul.Validator) {
-	for i, val := range valSet.List() {
+	for i, val := range valSet.List() { // Todo : Test if thread safe ?
 		if addr == val.Address() {
 			return i, val
 		}
@@ -112,6 +112,7 @@ func (valSet *defaultSet) IsProposer(address common.Address) bool {
 }
 
 func (valSet *defaultSet) CalcProposer(lastProposer common.Address, round uint64) {
+	//TODO: Thread safety on proposer
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 	valSet.proposer = valSet.selector(valSet, lastProposer, round)
@@ -151,7 +152,7 @@ func stickyProposer(valSet istanbul.ValidatorSet, proposer common.Address, round
 	if emptyAddress(proposer) {
 		seed = round
 	} else {
-		seed = calcSeed(valSet, proposer, round)
+		seed = calcSeed(valSet, proposer, round) // Todo: Broken
 	}
 	pick := seed % uint64(valSet.Size())
 	return valSet.GetByIndex(pick)

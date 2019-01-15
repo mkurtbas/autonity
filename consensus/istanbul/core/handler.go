@@ -87,6 +87,7 @@ func (c *core) handleEvents() {
 			}
 			// A real event arrived, process interesting content
 			switch ev := event.Data.(type) {
+			// Todo : Verify if two differents proposals can be broadcasted in the same view
 			case istanbul.RequestEvent:
 				r := &istanbul.Request{
 					Proposal: ev.Proposal,
