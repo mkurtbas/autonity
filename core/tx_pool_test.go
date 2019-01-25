@@ -719,7 +719,7 @@ func TestTransactionDropping(t *testing.T) {
 func TestTransactionPostponing(t *testing.T) {
 	t.Parallel()
 
-	// Create the pool to test the postponing with
+	// Create the pool to test the postponing withSubscribeNewTxsEvent
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(ethdb.NewMemDatabase()))
 	blockchain := &testBlockChain{statedb, 1000000, new(event.Feed)}
 
@@ -1761,6 +1761,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	config.NoLocals = nolocals
 	config.Journal = journal
 	config.Rejournal = time.Second
+	config.BroadcastPendingLocalTx = time.Second
 
 	pool := NewTxPool(config, params.TestChainConfig, blockchain)
 
