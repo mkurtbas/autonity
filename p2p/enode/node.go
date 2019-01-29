@@ -142,6 +142,14 @@ func (n *Node) UnmarshalText(text []byte) error {
 	return err
 }
 
+func (n *Node) UnmarshalJSON(data []byte) error {
+	dec, err := ParseV4(string(data))
+	if err == nil {
+		*n = *dec
+	}
+	return err
+}
+
 // ID is a unique identifier for each node.
 type ID [32]byte
 

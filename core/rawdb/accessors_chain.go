@@ -19,6 +19,7 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -74,6 +75,32 @@ func WriteHeadHeaderHash(db DatabaseWriter, hash common.Hash) {
 	if err := db.Put(headHeaderKey, hash.Bytes()); err != nil {
 		log.Crit("Failed to store last header's hash", "err", err)
 	}
+}
+
+// WriteEnodeWhitelist stores the list of permitted enodes
+func WriteEnodeWhitelist(db DatabaseWriter, whitelist []*enode.Node) {
+	bytes, err := rlp.EncodeToBytes(whitelist)
+	if err != nil {
+		log.Crit("Failed to RLP encode enode whitelist", "err", err)
+	}
+	if err := db.Put(enodeWhiteList, bytes); err != nil {
+		log.Crit("Failed to store last header's hash", "err", err)
+	}
+}
+
+// ReadEnodeWhitelist retrieve the list of permitted enodes
+func ReadEnodeWhitelist(db DatabaseReader) []*enode.Node {
+	whitelist := make([]*enode.Node, 0, 1)
+	data, _ := db.Get(enodeWhiteList)
+
+	if len(data) == 0 {
+		return whitelist
+	}
+	if err := rlp.Decode(bytes.NewReader(data), whitelist); err != nil {
+		log.Error("Invalid Enode whitelist", "err", err)
+		return nil
+	}
+	return whitelist
 }
 
 // ReadHeadBlockHash retrieves the hash of the current canonical head block.

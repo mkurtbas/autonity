@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"math/big"
 	"strings"
 
@@ -56,9 +57,9 @@ type Genesis struct {
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
 
 	// Network Permissioning
-	EnodeWhitelist    []string `json:"enodeWhitelist"      gencodec:"required"`
-	GlienickeBytecode string   `json:"GlienickeBytecode"`
-	GlienickeABI      string   `json:"GlienickeABI"`
+	EnodeWhitelist    []*enode.Node `json:"enodeWhitelist"      gencodec:"required"`
+	GlienickeBytecode string        `json:"GlienickeBytecode"`
+	GlienickeABI      string        `json:"GlienickeABI"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -284,6 +285,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
+	rawdb.WriteEnodeWhitelist(db, g.EnodeWhitelist)
 
 	config := g.Config
 	if config == nil {
