@@ -1043,6 +1043,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	// Set new head.
 	if status == CanonStatTy {
 		bc.insert(block)
+		//*ACCESS OPEN NETWORK LOGIC*//
 	}
 	bc.futureBlocks.Remove(block.Hash())
 	return status, nil

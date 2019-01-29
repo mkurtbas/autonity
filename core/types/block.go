@@ -19,6 +19,7 @@ package types
 
 import (
 	"encoding/binary"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"io"
 	"math/big"
 	"sort"
@@ -148,6 +149,9 @@ type Block struct {
 	// inter-peer block relay.
 	ReceivedAt   time.Time
 	ReceivedFrom interface{}
+
+	//Network Permissioning: allowed nodes for the current block
+	EnodeWhitelist []*enode.Node
 }
 
 // DeprecatedTd is an old relic for extracting the TD of a block. It is in the

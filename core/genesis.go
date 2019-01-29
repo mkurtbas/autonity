@@ -55,6 +55,11 @@ type Genesis struct {
 	Coinbase   common.Address      `json:"coinbase"`
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
 
+	// Network Permissioning
+	EnodeWhitelist    []string `json:"enodeWhitelist"      gencodec:"required"`
+	GlienickeBytecode string   `json:"GlienickeBytecode"`
+	GlienickeABI      string   `json:"GlienickeABI"`
+
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
 	Number     uint64      `json:"number"`
@@ -259,6 +264,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}
+
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
