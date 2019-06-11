@@ -79,6 +79,7 @@ func (c *core) handleEvents() {
 					c.storeUnminedBlockMsg(pb)
 				}
 			case tendermint.MessageEvent:
+				c.logger.Info("!!!!!!!!!!!Received a message event!!!!!!!!!!", "payload", e.Payload)
 				if err := c.handleMsg(e.Payload); err == nil {
 					c.backend.Gossip(c.valSet, e.Payload)
 				}
@@ -150,6 +151,8 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
+		c.logger.Info("!!!!!!!!!Inside testBacklog!!!!!!!!!!!")
+		c.logger.Info("!!!!!!!!!Inside testBacklog error!!!!!!!!!!!", "Error", err)
 		// We want to store only future messages in backlog
 		if err == errFutureRoundMessage {
 			//We cannont move to a round in a new height without receiving a new block
@@ -187,8 +190,10 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 
 	switch msg.Code {
 	case msgProposal:
+		c.logger.Info("!!!!!!!!!!!!Recieved a PROPOSAL message")
 		return testBacklog(c.handleProposal(msg, sender))
 	case msgPrevote:
+		c.logger.Info("!!!!!!!!!!!!Recieved a PREVOTE message")
 		return testBacklog(c.handlePrevote(msg, sender))
 	case msgPrecommit:
 		return testBacklog(c.handlePrecommit(msg, sender))

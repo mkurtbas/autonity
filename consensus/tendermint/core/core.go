@@ -185,8 +185,10 @@ func (c *core) broadcast(msg *message) {
 		logger.Error("Failed to finalize message", "msg", msg, "err", err)
 		return
 	}
+	c.logger.Info("!!!!!!!!!!FINALISED THE MESSAGE!!!!!!!!!!!!!!!", "message code", msg.Code)
 
 	// Broadcast payload
+	c.logger.Info("!!!!!!!!!!CALLING BACKEND.BROADCAST AND SENDING THE PAYLOAD!!!!!!!!!!!!!!!")
 	if err = c.backend.Broadcast(c.valSet, payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return

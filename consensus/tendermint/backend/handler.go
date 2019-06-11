@@ -48,6 +48,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	defer sb.coreMu.Unlock()
 
 	if msg.Code == tendermintMsg {
+		sb.logger.Info("!!!!!!!!!!!!!RECEIVED A TENDERMINT MESSAGE!!!!!!!!!!!")
 		if !sb.coreStarted {
 			return true, tendermint.ErrStoppedEngine
 		}
@@ -76,6 +77,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		}
 		sb.knownMessages.Add(hash, true)
 
+		sb.logger.Info("!!!!!!!!!!!!!Posting message event!!!!!!!!!!!!!!")
 		go sb.eventMux.Post(tendermint.MessageEvent{
 			Payload: data,
 		})

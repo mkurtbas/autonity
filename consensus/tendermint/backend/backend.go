@@ -139,6 +139,7 @@ func (sb *Backend) Validators(number uint64) tendermint.ValidatorSet {
 
 // Broadcast implements tendermint.Backend.Broadcast
 func (sb *Backend) Broadcast(valSet tendermint.ValidatorSet, payload []byte) error {
+	sb.logger.Info("!!!!!!!!!!GOSSIPING THE MESSAGE!!!!!!!!!!!!!!!")
 	// send to others
 	sb.Gossip(valSet, payload)
 	// send to self
@@ -161,7 +162,10 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 		}
 	}
 
+	sb.logger.Info("!!!!!!!!!!CONVERTING THE ADDRESSES INTO TARGETS!!!!!!!!!!!!!!!", "NUMBER OF TARGETS", len(targets))
+
 	if sb.broadcaster != nil && len(targets) > 0 {
+		sb.logger.Info("!!!!!!!!!!BROADCASTER IS NOT NIL AND TARGETS IS MORE THAN 0!!!!!!!!!!!!!!!", "NUMBER OF TARGETS", len(targets))
 		ps := sb.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
 			ms, ok := sb.recentMessages.Get(addr)
@@ -183,6 +187,7 @@ func (sb *Backend) Gossip(valSet tendermint.ValidatorSet, payload []byte) {
 				if err := p.Send(tendermintMsg, payload); err != nil {
 					sb.logger.Error("error while sending tendermintMsg message to the peer", "err", err)
 				}
+				sb.logger.Info("!!!!!!!!!!SENT MESSAGE TO PEER!!!!!!!!!!!!!!!", "peer", p)
 			}(p)
 		}
 	}
