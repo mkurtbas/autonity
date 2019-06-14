@@ -80,6 +80,8 @@ func (c *core) storeBacklog(msg *message, src tendermint.Validator) {
 }
 
 func (c *core) processBacklog() {
+	c.logger.Info("at processBacklog")
+
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()
 
@@ -90,6 +92,8 @@ func (c *core) processBacklog() {
 
 		logger := c.logger.New("from", src, "step", c.step)
 		var isFuture bool
+
+		logger.Info("processBacklog 1")
 
 		// We stop processing if
 		//   1. backlog is empty
@@ -136,7 +140,11 @@ func (c *core) processBacklog() {
 				msg: msg,
 			})
 		}
+
+		logger.Info("processBacklog 2")
 	}
+
+	c.logger.Info("processBacklog consensus ends here")
 }
 
 func toPriority(msgCode uint64, r *big.Int, h *big.Int) float32 {

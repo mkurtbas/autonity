@@ -10,6 +10,8 @@ import (
 func (c *core) sendPrevote(isNil bool) {
 	logger := c.logger.New("step", c.step)
 
+	logger.Info("++++++++++++ in sendPrevote 1", "nil", isNil)
+
 	var prevote = &tendermint.Vote{
 		Round:  big.NewInt(c.currentRoundState.round.Int64()),
 		Height: big.NewInt(c.currentRoundState.Height().Int64()),
@@ -21,11 +23,15 @@ func (c *core) sendPrevote(isNil bool) {
 		prevote.ProposedBlockHash = c.currentRoundState.Proposal().ProposalBlock.Hash()
 	}
 
+	logger.Info("++++++++++++ in sendPrevote 2", "nil", isNil)
+
 	encodedVote, err := Encode(prevote)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", prevote)
 		return
 	}
+
+	logger.Info("++++++++++++ in sendPrevote 3", "nil", isNil)
 
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
@@ -74,6 +80,8 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 
 		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		if c.step == StepProposeDone && !c.prevoteTimeout.started && c.quorum(c.currentRoundState.Prevotes.TotalSize(curProposaleHash)) {
+			c.logger.Info("reset timeout Prevote", "height", curH, "round", curR)
+
 			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
 			}
@@ -85,6 +93,7 @@ func (c *core) handlePrevote(msg *message, sender tendermint.Validator) error {
 			if err := c.stopPrevoteTimeout(); err != nil {
 				return err
 			}
+
 			c.sendPrecommit(true)
 			c.setStep(StepPrevoteDone)
 			// Line 36 in Algorithm 1 of The latest gossip on BFT consensus

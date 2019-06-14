@@ -176,7 +176,6 @@ func (c *core) handleCheckedMsg(msg *message, sender tendermint.Validator) error
 			if totalFutureRoundMessages >= int64(c.valSet.F()) {
 				c.startRound(big.NewInt(msgRound))
 			}
-
 		}
 		if err == errFutureHeightMessage || err == errFutureRoundMessage {
 			c.storeBacklog(msg, sender)

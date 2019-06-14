@@ -64,6 +64,7 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 
 	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	if !c.precommitTimeout.started && c.quorum(c.currentRoundState.Precommits.TotalSize(curProposaleHash)) {
+		c.logger.Info("reset timeout Precommit", "height", curH, "round", curR)
 		if err := c.stopPrecommitTimeout(); err != nil {
 			return err
 		}
@@ -75,13 +76,31 @@ func (c *core) handlePrecommit(msg *message, sender tendermint.Validator) error 
 	}
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
+	c.logger.Info("11111111111111", "size", c.currentRoundState.Precommits.VotesSize(curProposaleHash), "quorum", c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)))
 	if c.quorum(c.currentRoundState.Precommits.VotesSize(curProposaleHash)) {
+		c.logger.Info("2222222222222")
 		if err := c.stopPrecommitTimeout(); err != nil {
 			return err
 		}
 
+		c.logger.Info("33333333333333333")
 		c.commit()
+		c.logger.Info("44444444444444444")
+		return nil
 	}
+
+	if c.quorum(c.currentRoundState.Precommits.NilVotesSize()) {
+		c.logger.Info("2222222222222")
+		if err := c.stopPrecommitTimeout(); err != nil {
+			return err
+		}
+
+		// fixme I'm not sure how better to start new round here - it could be possible to make stake deeper and deeper
+		c.startRound(new(big.Int).Add(c.currentRoundState.Height(), common.Big1))
+		return nil
+	}
+
+	c.logger.Info("555555555555555555555555555")
 
 	return errNoMajority
 }

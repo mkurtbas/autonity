@@ -64,15 +64,7 @@ func (ms *messageSet) NilVotesSize() int {
 }
 
 func (ms *messageSet) TotalSize(blockHash common.Hash) int {
-	total := ms.NilVotesSize()
-
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	for _, v := range ms.votes {
-		total = total + len(v)
-	}
-
-	return total
+	return ms.NilVotesSize() + ms.VotesSize(blockHash)
 }
 
 func (ms *messageSet) Values(blockHash common.Hash) []message {

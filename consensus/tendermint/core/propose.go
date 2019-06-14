@@ -108,6 +108,7 @@ func (c *core) handleProposal(msg *message, sender tendermint.Validator) error {
 				return errNoMajority
 			}
 		} else {
+			c.logger.Info("handleProposal")
 			return err
 		}
 	}

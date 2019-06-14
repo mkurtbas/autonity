@@ -29,7 +29,7 @@ func (sb *Backend) getEVM(chain consensus.ChainReader, header *types.Header, ori
 		Time:        header.Time,
 		GasLimit:    header.GasLimit,
 		Difficulty:  header.Difficulty,
-		GasPrice:    new(big.Int).SetUint64(0x0),
+		GasPrice:    big.NewInt(0x0),
 	}
 	evm := vm.NewEVM(evmContext, statedb, chain.Config(), *sb.vmConfig)
 	return evm
@@ -60,7 +60,7 @@ func (sb *Backend) deployContract(chain consensus.ChainReader, header *types.Hea
 
 	data := append(contractBytecode, constructorParams...)
 	gas := uint64(0xFFFFFFFF)
-	value := new(big.Int).SetUint64(0x00)
+	value := big.NewInt(0x00)
 
 	// Deploy the Soma validator governance contract
 	_, contractAddress, _, vmerr := evm.Create(sender, data, gas, value)
@@ -89,7 +89,7 @@ func (sb *Backend) contractGetValidators(chain consensus.ChainReader, header *ty
 		return nil, err
 	}
 
-	value := new(big.Int).SetUint64(0x00)
+	value := big.NewInt(0x00)
 	//A standard call is issued - we leave the possibility to modify the state
 	ret, _, vmerr := evm.Call(sender, sb.somaContract, input, gas, value)
 	if vmerr != nil {

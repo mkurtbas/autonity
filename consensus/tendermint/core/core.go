@@ -179,18 +179,20 @@ func (c *core) finalizeMessage(msg *message) ([]byte, error) {
 
 func (c *core) broadcast(msg *message) {
 	logger := c.logger.New("step", c.step)
-
+	logger.Info("--- broadcast 1")
 	payload, err := c.finalizeMessage(msg)
 	if err != nil {
 		logger.Error("Failed to finalize message", "msg", msg, "err", err)
 		return
 	}
-
+	logger.Info("--- broadcast 2")
 	// Broadcast payload
 	if err = c.backend.Broadcast(c.valSet, payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}
+
+	logger.Info("--- broadcast 3")
 }
 
 func (c *core) isProposer() bool {
@@ -205,27 +207,38 @@ func (c *core) commit() {
 	c.setStep(StepPrecommitDone)
 
 	proposal := c.currentRoundState.Proposal()
-	if proposal != nil {
-		committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
-		for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
-			committedSeals[i] = make([]byte, types.PoSExtraSeal)
-			copy(committedSeals[i][:], v.CommittedSeal[:])
-		}
+	if proposal == nil {
+		c.logger.Error("error on commit", "height", c.currentRoundState.height, "round", c.currentRoundState.round, "proposal", "nil")
+		return
+	}
 
-		if err := c.backend.Commit(*proposal.ProposalBlock, committedSeals); err != nil {
-			return
-		}
+	committedSeals := make([][]byte, c.currentRoundState.Precommits.VotesSize(proposal.ProposalBlock.Hash()))
+	for i, v := range c.currentRoundState.Precommits.Values(proposal.ProposalBlock.Hash()) {
+		committedSeals[i] = make([]byte, types.PoSExtraSeal)
+		copy(committedSeals[i][:], v.CommittedSeal[:])
+	}
+
+	err := c.backend.Commit(*proposal.ProposalBlock, committedSeals)
+	if err != nil {
+		c.logger.Error("error on commit", "height", c.currentRoundState.height, "round", c.currentRoundState.round, "error", err)
 	}
 }
 
 // startRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *core) startRound(round *big.Int) {
 	lastCommittedProposalBlock, lastCommittedProposalBlockProposer := c.backend.LastCommittedProposal()
-	height := new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
+
+	if c.currentRoundState == nil || c.currentRoundState.height == nil {
+		c.logger.Info("Round started", "height", "nil", "round", round.Uint64())
+	} else {
+		c.logger.Info("Round started", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
+	}
 
 	// Start of new height where round is 0
+	var height *big.Int
 	if round.Int64() == 0 {
 		// Set the shared round values to initial values
+		height = new(big.Int).Add(lastCommittedProposalBlock.Number(), common.Big1)
 		c.lockedRound = big.NewInt(-1)
 		c.lockedValue = nil
 		c.validRound = big.NewInt(-1)
@@ -236,7 +249,11 @@ func (c *core) startRound(round *big.Int) {
 
 		// Assuming that round == 0 only when the node moves to a new height
 		c.currentHeightRoundsStates = make(map[int64]*roundState)
+	} else {
+		height = new(big.Int).Set(lastCommittedProposalBlock.Number())
 	}
+
+	c.logger.Info("Round started 1", "height", height.Uint64(), "round", round.Uint64())
 
 	// Reset all timeouts
 	c.proposeTimeout = new(timeout)
@@ -255,6 +272,8 @@ func (c *core) startRound(round *big.Int) {
 		}
 	}
 
+	c.logger.Info("Round started 2", "height", height.Uint64(), "round", round.Uint64())
+
 	// Update current round state and the reference to c.currentHeightRoundsState
 	// We only add old round prevote messages to c.currentHeightRoundState, while future messages are sent to the backlog
 	// Which are processed when the step is set to StepAcceptProposal
@@ -265,21 +284,38 @@ func (c *core) startRound(round *big.Int) {
 	// c.setStep(StepAcceptProposal) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.setStep(StepAcceptProposal)
 
+	c.logger.Info("Round started 3", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
+
 	var p *types.Block
 	if c.isProposer() {
 		if c.validValue != nil {
+			c.logger.Info("Round started 4", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
 			p = c.validValue
+			c.logger.Info("Round started 5", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
 		} else {
 			if c.latestPendingUnminedBlock == nil {
+				c.logger.Info("Round started 6", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
 				<-c.firstUnminedBlockCh
+				c.logger.Info("Round started 7", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
 			}
 			p = c.latestPendingUnminedBlock
 		}
+
+		c.logger.Info("Round started 8", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
 		c.sendProposal(p)
+		c.logger.Info("Round started 9", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
+
+		//fixme we should have timeout for a proposer too
 	} else {
+		c.logger.Info("Round started 10", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
+
 		timeoutDuration := timeoutPropose(round.Int64())
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round.Int64(), height.Int64(), c.onTimeoutPropose)
+
+		c.logger.Info("Round started 11", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
 	}
+
+	c.logger.Info("Round started 12", "height", c.currentRoundState.height.Uint64(), "round", round.Uint64())
 }
 
 func (c *core) setStep(step Step) {
