@@ -103,6 +103,7 @@ type core struct {
 	handlerStopCh chan struct{}
 
 	messageEventSub         *event.TypeMuxSubscription
+	backlogEventSub         *event.TypeMuxSubscription
 	newUnminedBlockEventSub *event.TypeMuxSubscription
 	committedSub            *event.TypeMuxSubscription
 	timeoutEventSub         *event.TypeMuxSubscription

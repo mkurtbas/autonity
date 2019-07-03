@@ -39,9 +39,9 @@ func (c *core) Stop() error {
 
 func (c *core) subscribeEvents() {
 	c.messageEventSub = c.backend.EventMux().Subscribe(
-		// external messages
 		tendermint.MessageEvent{},
-		// internal messages
+	)
+	c.backlogEventSub = c.backend.EventMux().Subscribe(
 		backlogEvent{},
 	)
 	c.newUnminedBlockEventSub = c.backend.EventMux().Subscribe(
@@ -58,6 +58,7 @@ func (c *core) subscribeEvents() {
 // Unsubscribe all messageEventSub
 func (c *core) unsubscribeEvents() {
 	c.messageEventSub.Unsubscribe()
+	c.backlogEventSub.Unsubscribe()
 	c.newUnminedBlockEventSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
 	c.committedSub.Unsubscribe()
@@ -115,63 +116,72 @@ func (c *core) handleConsensusEvents() {
 				return
 			}
 			// A real ev arrived, process interesting content
-			switch e := ev.Data.(type) {
-			case tendermint.MessageEvent:
-				if len(e.Payload) == 0 {
-					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
-				}
+			messageE := ev.Data.(tendermint.MessageEvent)
 
-				c.logger.Debug("Started handling tendermint.MessageEvent")
-				if err := c.handleMsg(e.Payload); err != nil {
-					c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
-					continue
-				}
-				c.logger.Debug("Finished handling tendermint.MessageEvent")
-
-				c.backend.Gossip(c.valSet.Copy(), e.Payload)
-			case backlogEvent:
-				// No need to check signature for internal messages
-				c.logger.Debug("Started handling backlogEvent")
-				err := c.handleCheckedMsg(e.msg, e.src)
-				if err != nil {
-					c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
-					continue
-				}
-				c.logger.Debug("Finished handling backlogEvent")
-
-				p, err := e.msg.Payload()
-				if err != nil {
-					c.logger.Error("core.handleConsensusEvents Get message payload failed", "err", err)
-					continue
-				}
-				c.backend.Gossip(c.valSet.Copy(), p)
+			if len(messageE.Payload) == 0 {
+				c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) empty payload")
 			}
+
+			c.logger.Debug("Started handling tendermint.MessageEvent")
+			if err := c.handleMsg(messageE.Payload); err != nil {
+				c.logger.Error("core.handleConsensusEvents Get message(MessageEvent) payload failed", "err", err)
+				continue
+			}
+			c.logger.Debug("Finished handling tendermint.MessageEvent")
+
+			c.backend.Gossip(c.valSet.Copy(), messageE.Payload)
+
+		case ev, ok := <-c.backlogEventSub.Chan():
+			if !ok {
+				return
+			}
+
+			backlogE := ev.Data.(backlogEvent)
+			// No need to check signature for internal messages
+			c.logger.Debug("Started handling backlogEvent")
+			err := c.handleCheckedMsg(backlogE.msg, backlogE.src)
+			if err != nil {
+				c.logger.Error("core.handleConsensusEvents handleCheckedMsg message failed", "err", err)
+				continue
+			}
+			c.logger.Debug("Finished handling backlogEvent")
+
+			p, err := backlogE.msg.Payload()
+			if err != nil {
+				c.logger.Error("core.handleConsensusEvents Get message payload failed", "err", err)
+				continue
+			}
+			c.backend.Gossip(c.valSet.Copy(), p)
+
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
 				return
 			}
-			if timeoutE, ok := ev.Data.(timeoutEvent); ok {
-				c.logger.Debug("Started handling timeoutEvent")
-				switch timeoutE.step {
-				case msgProposal:
-					c.handleTimeoutPropose(timeoutE)
-				case msgPrevote:
-					c.handleTimeoutPrevote(timeoutE)
-				case msgPrecommit:
-					c.handleTimeoutPrecommit(timeoutE)
-				}
-				c.logger.Debug("Finished handling timeoutEvent")
+
+			timeoutE := ev.Data.(timeoutEvent)
+
+			c.logger.Debug("Started handling timeoutEvent")
+
+			switch timeoutE.step {
+			case msgProposal:
+				c.handleTimeoutPropose(timeoutE)
+			case msgPrevote:
+				c.handleTimeoutPrevote(timeoutE)
+			case msgPrecommit:
+				c.handleTimeoutPrecommit(timeoutE)
 			}
-		case ev, ok := <-c.committedSub.Chan():
+
+			c.logger.Debug("Finished handling timeoutEvent")
+
+		case _, ok := <-c.committedSub.Chan():
 			if !ok {
 				return
 			}
-			switch ev.Data.(type) {
-			case tendermint.CommitEvent:
-				c.logger.Debug("Started handling CommitEvent")
-				c.handleCommit()
-				c.logger.Debug("Finished handling CommitEvent")
-			}
+
+			c.logger.Debug("Started handling CommitEvent")
+			c.handleCommit()
+			c.logger.Debug("Finished handling CommitEvent")
+
 		}
 	}
 }
