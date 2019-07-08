@@ -184,7 +184,10 @@ func TestGetProposer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	chain.InsertChain(types.Blocks{block})
+	_, err = chain.InsertChain(types.Blocks{block})
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := engine.GetProposer(1)
 	actual := engine.Address()
 	if actual != expected {

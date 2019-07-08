@@ -124,8 +124,8 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
 
-	// Deploy the Glienicke validator governance contract
-	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
+	// Deploy the Glienicke validator governance contract. We have an assumption that we are deploying contract only on the first block
+	_, contractAddress, gas, vmerr := evm.Create2(sender, data, gas, value, header.Number)
 	if vmerr != nil {
 		log.Error("Error Glienicke Contract deployment")
 		return nil, common.Address{}, vmerr

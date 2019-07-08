@@ -471,6 +471,37 @@ OUT3:
 	}
 }
 
+func TestVerifyHeaders2(t *testing.T) {
+	chain, engine := newBlockChain(1)
+	_ = chain
+
+	st, err := chain.State()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := makeBlock(chain, engine, chain.Genesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b, err = engine.updateBlock(engine.blockchain.GetHeader(b.ParentHash(), b.NumberU64()-1), b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr, err := engine.getValidators(b.Header(), chain, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(addr[0].String())
+	i, err := chain.InsertChain(types.Blocks{b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(i)
+}
+
 func TestPrepareExtra(t *testing.T) {
 	validators := make([]common.Address, 4)
 	validators[0] = common.BytesToAddress(hexutil.MustDecode("0x44add0ec310f115a0e603b2d7db9f067778eaf8a"))

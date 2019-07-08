@@ -19,6 +19,8 @@ package backend
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 	"time"
 
@@ -32,14 +34,13 @@ import (
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rpc"
 )
 
 const (
-	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
-	inmemoryPeers      = 40
-	inmemoryMessages   = 1024
+	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
+	inmemoryPeers     = 40
+	inmemoryMessages  = 1024
 )
 
 var (
@@ -345,35 +346,56 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	return types.NewBlock(header, txs, nil, receipts), nil
 }
 
+func (sb *backend) deployContracts(header *types.Header, chain consensus.ChainReader, state *state.StateDB) error {
+	log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
+	var err error
+
+	//if sb.somaContract==emptyAddress {
+	sb.somaContract, err = sb.deploySomaContract(chain, header, state)
+	if err != nil {
+		return err
+	}
+	//}
+	log.Info("Soma Contract Deployed", "Address", sb.somaContract.String())
+
+	// Deploy Glienicke network-permissioning contract
+	//if sb.glienickeContract == emptyAddress {
+	_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
+	if err != nil {
+		return err
+	}
+	//}
+	log.Info("Glienicke Contract Deployed", "Address", sb.glienickeContract.String())
+
+	fmt.Println("Glienicke", sb.somaContract.String())
+	fmt.Println("Soma     ", sb.glienickeContract.String())
+
+	return nil
+}
+
+var emptyAddress = common.HexToAddress("0000000000000000000000000000000000000000")
+
 func (sb *backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
 	var err error
 
 	if header.Number.Int64() == 1 {
-		// Deploy Soma on-blockchain governance contract
-		log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
-		contractAddress, err := sb.deployContract(chain, header, state)
+		err = sb.deployContracts(header, chain, state)
 		if err != nil {
 			return nil, err
 		}
-		sb.somaContract = contractAddress
+
+		// Deploy Soma on-blockchain governance contract
 		validators, err = sb.retrieveSavedValidators(1, chain)
 		if err != nil {
 			return nil, err
 		}
-
-		// Deploy Glienicke network-permissioning contract
-		_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
-		if err != nil {
-			return nil, err
-		}
-
 	} else {
-		if sb.somaContract == common.HexToAddress("0000000000000000000000000000000000000000") {
+		if sb.somaContract == emptyAddress {
 			sb.somaContract = crypto.CreateAddress(sb.config.Deployer, 0)
 		}
 
-		if sb.glienickeContract == common.HexToAddress("0000000000000000000000000000000000000000") {
+		if sb.glienickeContract == emptyAddress {
 			sb.glienickeContract = crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0)
 		}
 

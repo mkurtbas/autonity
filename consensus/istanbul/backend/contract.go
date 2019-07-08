@@ -35,8 +35,8 @@ func (sb *backend) getEVM(chain consensus.ChainReader, header *types.Header, ori
 	return evm
 }
 
-// deployContract deploys the contract contained within the genesis field bytecode
-func (sb *backend) deployContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
+// deploySomaContract deploys the contract contained within the genesis field bytecode
+func (sb *backend) deploySomaContract(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) (common.Address, error) {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(sb.config.Bytecode)
 	evm := sb.getEVM(chain, header, sb.config.Deployer, statedb)
@@ -63,7 +63,7 @@ func (sb *backend) deployContract(chain consensus.ChainReader, header *types.Hea
 	value := new(big.Int).SetUint64(0x00)
 
 	// Deploy the Soma validator governance contract
-	_, contractAddress, gas, vmerr := evm.Create(sender, data, gas, value)
+	_, contractAddress, gas, vmerr := evm.Create2(sender, data, gas, value, header.Number)
 	if vmerr != nil {
 		log.Error("Error Soma Governance Contract deployment")
 		return contractAddress, vmerr
