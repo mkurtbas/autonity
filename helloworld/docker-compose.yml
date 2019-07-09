@@ -10,6 +10,7 @@ services:
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
+      - ./logs/log1/:/logs
     ports:
       - 8541:8545
       - 30313:30303
@@ -29,6 +30,7 @@ services:
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
+      - ./logs/log2:/logs
     ports:
       - 8542:8545
       - 30323:30303
@@ -48,6 +50,7 @@ services:
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
+      - ./logs/log3:/logs
     ports:
       - 8543:8545
       - 30333:30303
@@ -67,6 +70,7 @@ services:
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
+      - ./logs/log4:/logs
     ports:
       - 8544:8545
       - 30343:30303
@@ -86,6 +90,7 @@ services:
       - ./keystore:/keystore:ro
       - ./genesis-ibft.json:/genesis.json:ro
       - ./autonity-start.sh:/autonity-start.sh:ro
+      - ./logs/log5:/logs
     ports:
       - 8545:8545
       - 30353:30303

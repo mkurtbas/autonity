@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/clearmatics/autonity/log"
 	"math/big"
+	"runtime"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
@@ -331,8 +332,20 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	if sb.blockchain == nil {
 		sb.blockchain = chain.(*core.BlockChain) // in the case of Finalize() called before the engine start()
 	}
+	if header.Number.Int64()==-1 {
+		fmt.Println("deploy contract")
+		err := sb.deployContracts(header, chain, state)
+		if err != nil {
+			fmt.Println("deploy contract error", err)
+			return nil, err
+		}
+	}
+
 
 	validators, err := sb.getValidators(header, chain, state)
+	if err!=nil {
+		return nil, err
+	}
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
@@ -349,26 +362,37 @@ func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 func (sb *backend) deployContracts(header *types.Header, chain consensus.ChainReader, state *state.StateDB) error {
 	log.Info("Soma Contract Deployer", "Address", sb.config.Deployer)
 	var err error
+	buf:=new(bytes.Buffer)
+	fmt.Fprintln(buf,"deployContracts")
 
-	//if sb.somaContract==emptyAddress {
+	_,f,l,_:=runtime.Caller(2)
+	fmt.Fprintf(buf, "%v:%v\n", f,l)
+	_,f,l,_=runtime.Caller(3)
+	fmt.Fprintf(buf, "%v:%v\n", f,l)
+	_,f,l,_=runtime.Caller(4)
+	fmt.Fprintf(buf, "%v:%v\n", f,l)
+	_,f,l,_=runtime.Caller(5)
+	fmt.Fprintf(buf, "%v:%v\n", f,l)
+	fmt.Println(buf.String())
 	sb.somaContract, err = sb.deploySomaContract(chain, header, state)
 	if err != nil {
 		return err
 	}
-	//}
-	log.Info("Soma Contract Deployed", "Address", sb.somaContract.String())
+	fmt.Println("Soma deployed")
+		log.Info("Soma Contract Deployed", "Address", sb.somaContract.String())
 
 	// Deploy Glienicke network-permissioning contract
-	//if sb.glienickeContract == emptyAddress {
 	_, sb.glienickeContract, err = sb.blockchain.DeployGlienickeContract(state, header)
 	if err != nil {
 		return err
 	}
-	//}
 	log.Info("Glienicke Contract Deployed", "Address", sb.glienickeContract.String())
+	fmt.Println("Glienicke deployed")
 
-	fmt.Println("Glienicke", sb.somaContract.String())
-	fmt.Println("Soma     ", sb.glienickeContract.String())
+	fmt.Println("Glienicke", sb.glienickeContract.String())
+	fmt.Println("Glienicke from config", crypto.CreateAddress(sb.blockchain.Config().GlienickeDeployer, 0).String())
+	fmt.Println("Soma     ", sb.somaContract.String())
+	fmt.Println("Soma     from config", crypto.CreateAddress(sb.config.Deployer, 0).String())
 
 	return nil
 }
@@ -378,13 +402,10 @@ var emptyAddress = common.HexToAddress("0000000000000000000000000000000000000000
 func (sb *backend) getValidators(header *types.Header, chain consensus.ChainReader, state *state.StateDB) ([]common.Address, error) {
 	var validators []common.Address
 	var err error
+	fmt.Println("get Validators for block", header.Number)
+	log.Info("get Validators for block", "num", header.Number)
 
 	if header.Number.Int64() == 1 {
-		err = sb.deployContracts(header, chain, state)
-		if err != nil {
-			return nil, err
-		}
-
 		// Deploy Soma on-blockchain governance contract
 		validators, err = sb.retrieveSavedValidators(1, chain)
 		if err != nil {
@@ -541,7 +562,12 @@ func (sb *backend) retrieveSavedValidators(number uint64, chain consensus.ChainR
 	if err != nil {
 		return nil, err
 	}
-
+	b:=new(bytes.Buffer)
+	fmt.Fprintln(b,"retrieveSavedValidators")
+	for i,v:=range istanbulExtra.Validators {
+		fmt.Fprintln(b, i, " - ", v.String())
+	}
+	fmt.Println(b.String())
 	return istanbulExtra.Validators, nil
 
 }

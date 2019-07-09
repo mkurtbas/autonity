@@ -1,8 +1,11 @@
 package backend
 
 import (
+	"fmt"
 	"math/big"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/clearmatics/autonity/accounts/abi"
@@ -69,10 +72,31 @@ func (sb *backend) deploySomaContract(chain consensus.ChainReader, header *types
 		return contractAddress, vmerr
 	}
 
+	fmt.Println("soma contract address", contractAddress.String())
+	f,_:=os.Create("/Users/boris/go/src/github.com/clearmatics/autonity/debug/deploy_state"+strconv.Itoa(i)+".json")
+	fmt.Fprintln(f, string(statedb.Dump()))
+	f2,_:=os.Create("/Users/boris/go/src/github.com/clearmatics/autonity/debug/code"+strconv.Itoa(i)+".txt")
+	fmt.Fprintln(f2, statedb.GetCode(contractAddress))
+	f3,_:=os.Create("/Users/boris/go/src/github.com/clearmatics/autonity/debug/origin_storage"+strconv.Itoa(i)+".txt")
+	f4,_:=os.Create("/Users/boris/go/src/github.com/clearmatics/autonity/debug/dirty_storage"+strconv.Itoa(i)+".txt")
+	//f5,_:=os.Create("/Users/boris/go/src/github.com/clearmatics/autonity/debug/spew"+strconv.Itoa(i)+".txt")
+	so:=statedb.GetOrNewStateObject(contractAddress)
+	fmt.Fprintln(f3, so.OriginStorage())
+	fmt.Fprintln(f4, so.DirtyStorage())
+	//spew.Fdump(f5, so)
+	defer f.Close()
+	defer f2.Close()
+	defer f3.Close()
+	defer f4.Close()
+	//defer f5.Close()
+
+
+
 	log.Info("Deployed Soma Governance Contract", "Address", contractAddress.String())
 
 	return contractAddress, nil
 }
+var i int
 
 func (sb *backend) contractGetValidators(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB) ([]common.Address, error) {
 	sender := vm.AccountRef(sb.config.Deployer)
@@ -81,11 +105,13 @@ func (sb *backend) contractGetValidators(chain consensus.ChainReader, header *ty
 
 	somaAbi, err := abi.JSON(strings.NewReader(sb.config.ABI))
 	if err != nil {
+		fmt.Println("abi.JSON")
 		return nil, err
 	}
 
 	input, err := somaAbi.Pack("getValidators")
 	if err != nil {
+		fmt.Println("somaAbi.Pack")
 		return nil, err
 	}
 
@@ -93,13 +119,16 @@ func (sb *backend) contractGetValidators(chain consensus.ChainReader, header *ty
 	//A standard call is issued - we leave the possibility to modify the state
 	ret, gas, vmerr := evm.Call(sender, sb.somaContract, input, gas, value)
 	if vmerr != nil {
-		log.Error("Error Soma Governance Contract GetValidators()")
+		fmt.Println("evm.Call(")
+		log.Error("Error Soma Governance Contract GetValidators()", "err", err)
 		return nil, vmerr
 	}
-
 	var addresses []common.Address
+	fmt.Println("ret",ret)
+	fmt.Println("ret",string(ret))
 	if err := somaAbi.Unpack(&addresses, "getValidators", ret); err != nil { // can't work with aliased types
-		log.Error("Could not unpack getValidators returned value")
+	fmt.Println("somaAbi.Unpack")
+		log.Error("Could not unpack getValidators returned value", "err", err)
 		return nil, err
 	}
 

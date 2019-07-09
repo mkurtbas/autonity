@@ -184,6 +184,8 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		logged  bool   // deferred Tracer should ignore already logged steps
 	)
 	contract.Input = input
+	fmt.Println("input", string(input))
+
 
 	// Reclaim the stack as an int pool when the execution stops
 	defer func() { in.intPool.put(stack.data...) }()
@@ -213,6 +215,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// enough stack items available to perform the operation.
 		op = contract.GetOp(pc)
 		operation := in.cfg.JumpTable[op]
+		fmt.Println("operation", op)
 		if !operation.valid {
 			return nil, fmt.Errorf("invalid opcode 0x%x", int(op))
 		}

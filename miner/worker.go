@@ -19,6 +19,7 @@ package miner
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -306,7 +307,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		minRecommit = recommit // minimal resubmit interval specified by user.
 		timestamp   int64      // timestamp for each round of mining.
 	)
-
+fmt.Println("newWorkLoop started")
 	timer := time.NewTimer(0)
 	<-timer.C // discard the initial tick
 
@@ -357,6 +358,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case <-w.startCh:
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			timestamp = time.Now().Unix()
+			log.Info("miner/worker.go:361 <-w.startCh")
 			commit(false, commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
@@ -365,6 +367,8 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			if h, ok := w.engine.(consensus.Handler); ok {
 				h.NewChainHead()
 			}
+			log.Info("miner/worker.go:361  <-w.chainHeadCh")
+
 			commit(false, commitInterruptNewHead)
 
 		case <-timer.C:
@@ -376,6 +380,8 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 					timer.Reset(recommit)
 					continue
 				}
+				log.Info("miner/worker.go:361 <-timer.C")
+
 				commit(true, commitInterruptResubmit)
 			}
 
@@ -423,6 +429,7 @@ func (w *worker) mainLoop() {
 	for {
 		select {
 		case req := <-w.newWorkCh:
+			fmt.Println("miner/worker.go:427 newWorkCh")
 			w.commitNewWork(req.interrupt, req.noempty, req.timestamp)
 
 		case ev := <-w.chainSideCh:
@@ -486,6 +493,7 @@ func (w *worker) mainLoop() {
 			} else {
 				// If we're mining, but nothing is being processed, wake on new transactions
 				if w.config.Clique != nil && w.config.Clique.Period == 0 {
+					fmt.Println("miner/worker.go:490  w.config.Clique != nil")
 					w.commitNewWork(nil, false, time.Now().Unix())
 				}
 			}
@@ -833,9 +841,11 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
-func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) {
+func (w *worker)  commitNewWork(interrupt *int32, noempty bool, timestamp int64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
+
+	fmt.Println("worker commitNewWork")
 
 	tstart := time.Now()
 	parent := w.chain.CurrentBlock()
@@ -968,6 +978,8 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		receipts[i] = new(types.Receipt)
 		*receipts[i] = *l
 	}
+
+	fmt.Println("worker commit")
 	s := w.current.state.Copy()
 	block, err := w.engine.Finalize(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
 	if err != nil {

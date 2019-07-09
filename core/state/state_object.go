@@ -88,6 +88,13 @@ type stateObject struct {
 	deleted   bool
 }
 
+func (s *stateObject) OriginStorage() Storage {
+	return s.originStorage
+}
+func (s *stateObject) DirtyStorage() Storage {
+	return s.dirtyStorage
+}
+
 // empty returns whether the account is considered empty.
 func (s *stateObject) empty() bool {
 	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash)
@@ -201,6 +208,7 @@ func (self *stateObject) SetState(db Database, key, value common.Hash) {
 	if prev == value {
 		return
 	}
+	fmt.Println("SetState", self.address.String(), key.String(), value.String() )
 	// New value is different, update and journal the change
 	self.db.journal.append(storageChange{
 		account:  &self.address,

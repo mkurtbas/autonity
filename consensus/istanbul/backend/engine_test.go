@@ -45,8 +45,26 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := ethdb.NewMemDatabase()
 	config := istanbul.DefaultConfig
-	// Use the first key as private key
+	somaAddr:=common.HexToAddress("0x0000000000000000000000000000000000111110")
+	glAddr:=common.HexToAddress("0x0000000000000000000000000000000000222220")
+	genesis.Alloc[somaAddr]=core.GenesisAccount{
+		Code:common.Hex2Bytes(config.Bytecode),
+		Balance:big.NewInt(0),
+		Storage:map[common.Hash]common.Hash{
+		},
+
+	}
+	genesis.Alloc[glAddr]=core.GenesisAccount{
+		Code:common.Hex2Bytes(genesis.Config.GlienickeBytecode),
+		Balance:big.NewInt(0),
+		Storage:map[common.Hash]common.Hash{
+			common.HexToHash("0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"):common.HexToHash("0x000000000000000000000000cab01bd93bc641354936461c12aace14819cd29d"),
+		},
+	}
 	b := New(config, nodeKeys[0], memDB, genesis.Config, &vm.Config{}).(*backend)
+	// Use the first key as private key
+	b.somaContract=somaAddr
+	b.glienickeContract=glAddr
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil)
 	if err != nil {
@@ -67,6 +85,7 @@ func newBlockChain(n int) (*core.BlockChain, *backend) {
 			b.address = addr
 		}
 	}
+
 
 	return blockchain, b
 }
@@ -134,17 +153,29 @@ func makeBlock(chain *core.BlockChain, engine *backend, parent *types.Block) (*t
 	}
 
 	resultCh := make(chan *types.Block)
-	engine.Seal(chain, block, resultCh, nil)
+	err=engine.Seal(chain, block, resultCh, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return <-resultCh, nil
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, engine.config)
-	engine.Prepare(chain, header)
-	state, err := chain.StateAt(parent.Root())
-	block, _ := engine.Finalize(chain, header, state, nil, nil, nil)
+	err:=engine.Prepare(chain, header)
+	//if err!=nil {
+	//	return nil,err
+	//}
 
+	state, err := chain.StateAt(parent.Root())
+	if err!=nil {
+		return nil,err
+	}
+	block, err := engine.Finalize(chain, header, state, nil, nil, nil)
+	if err!=nil {
+		return nil,err
+	}
 	// Write state changes to db
 	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))
 	if err != nil {
@@ -226,6 +257,29 @@ func TestSealCommitted(t *testing.T) {
 	}
 }
 
+func TestGenesis(t *testing.T) {
+	chain, engine := newBlockChain(4)
+	val, err:=engine.retrieveSavedValidators(1,chain)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	if len(val) !=4 {
+		t.Fatal("incorrect validators size")
+	}
+}
+func TestGenesis2(t *testing.T) {
+	chain, engine := newBlockChain(4)
+	st,err:=chain.State()
+	t.Log(engine.somaContract.String())
+	val, err:=engine.contractGetValidators(chain, chain.CurrentHeader(), st)
+
+	if err!=nil {
+		t.Fatal(err)
+	}
+	if len(val) !=4 {
+		t.Fatal("incorrect validators size")
+	}
+}
 func TestVerifyHeader(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
@@ -366,7 +420,7 @@ func TestVerifyHeaders(t *testing.T) {
 	// success case
 	headers := []*types.Header{}
 	blocks := []*types.Block{}
-	size := 100
+	size := 2
 
 	var err error
 	for i := 0; i < size; i++ {
@@ -490,15 +544,40 @@ func TestVerifyHeaders2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr, err := engine.getValidators(b.Header(), chain, st)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(addr[0].String())
+	//t.Log(addr[0].String())
 	i, err := chain.InsertChain(types.Blocks{b})
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	b, err = makeBlock(chain, engine, chain.Genesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err = engine.updateBlock(engine.blockchain.GetHeader(b.ParentHash(), b.NumberU64()-1), b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr, err := engine.getValidators(b.Header(), chain, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	i, err = chain.InsertChain(types.Blocks{b})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+
+
+	addr, err = engine.contractGetValidators(chain, chain.CurrentHeader(), st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(addr[0].String())
+
+
 	t.Log(i)
 }
 

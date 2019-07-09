@@ -18,6 +18,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sort"
 	"strings"
@@ -124,12 +125,18 @@ func (bc *BlockChain) DeployGlienickeContract(state *state.StateDB, header *type
 	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
 
-	// Deploy the Glienicke validator governance contract. We have an assumption that we are deploying contract only on the first block
+	// Deploy the Glienicke validator governance contract.
 	_, contractAddress, gas, vmerr := evm.Create2(sender, data, gas, value, header.Number)
 	if vmerr != nil {
 		log.Error("Error Glienicke Contract deployment")
 		return nil, common.Address{}, vmerr
 	}
+
+	fmt.Println("code", contractBytecode)
+	fmt.Println("code", common.Bytes2Hex(contractBytecode))
+	fmt.Println("enodesWhitelist.StrList", enodesWhitelist.StrList)
+	fmt.Println("constructorParams", constructorParams)
+
 
 	log.Info("Deployed Glienicke Contract", "Address", contractAddress.String())
 

@@ -28,4 +28,4 @@ $AUTONITY \
   --mine \
   --miner.threads 1 \
   --verbosity 4 \
-  --debug
+  --debug > ./logs/log.txt

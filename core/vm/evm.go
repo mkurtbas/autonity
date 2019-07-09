@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -42,15 +43,20 @@ type (
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
+	fmt.Println("evm run")
 	if contract.CodeAddr != nil {
+		fmt.Println("contract.CodeAddr != nil")
 		precompiles := PrecompiledContractsHomestead
 		if evm.ChainConfig().IsByzantium(evm.BlockNumber) {
 			precompiles = PrecompiledContractsByzantium
 		}
+		fmt.Println("contract.CodeAddr",contract.CodeAddr)
+		fmt.Println(precompiles)
 		if p := precompiles[*contract.CodeAddr]; p != nil {
 			return RunPrecompiledContract(p, input, contract)
 		}
 	}
+	fmt.Println("evm.interpreters")
 	for _, interpreter := range evm.interpreters {
 		if interpreter.CanRun(contract.Code) {
 			if evm.interpreter != interpreter {
@@ -61,6 +67,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				}(evm.interpreter)
 				evm.interpreter = interpreter
 			}
+			fmt.Println("interpreter.Run")
 			return interpreter.Run(contract, input, readOnly)
 		}
 	}
@@ -216,9 +223,14 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	// The contract is a scoped environment for this execution context only.
 	contract := NewContract(caller, to, value, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
-
+	fmt.Println("contract.Address().String()", contract.Address().String())
 	// Even if the account has no code, we need to continue because it might be a precompile
 	start := time.Now()
+
+	evm.vmConfig.Debug=true
+	evm.vmConfig.Tracer= NewStructLogger(&LogConfig{
+		Debug:true,
+	})
 
 	// Capture the tracer start/end events in debug mode
 	if evm.vmConfig.Debug && evm.depth == 0 {
