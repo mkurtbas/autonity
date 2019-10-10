@@ -73,6 +73,7 @@ func (c *core) storeBacklog(msg *Message, src validator.Validator) {
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()
 
+	// fixme we'll loose backlogs data in case of stop or restart. Do we need persistance?
 	backlogPrque := c.backlogs[src]
 	if backlogPrque == nil {
 		backlogPrque = prque.New()
@@ -99,6 +100,7 @@ func (c *core) processBacklog() {
 	c.backlogsMu.Lock()
 	defer c.backlogsMu.Unlock()
 
+	// fixme we should restore the backlog after start here
 	for src, backlog := range c.backlogs {
 		if backlog == nil {
 			continue

@@ -169,6 +169,7 @@ const TTL = 10           //seconds
 const retryInterval = 50 //milliseconds
 
 // Broadcast implements tendermint.Backend.Gossip
+// fixme we'll payload and messagein case of stop or restart. Do we need persistence?
 func (sb *Backend) Gossip(ctx context.Context, valSet validator.Set, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
@@ -477,6 +478,7 @@ func (sb *Backend) SetPrivateKey(key *ecdsa.PrivateKey) {
 
 // Synchronize new connected peer with current height state
 func (sb *Backend) SyncPeer(address common.Address, messages []*tendermintCore.Message) {
+	// fixme shall we trigger handling the backlog only after successful SyncPeer?
 	if sb.broadcaster == nil {
 		return
 	}

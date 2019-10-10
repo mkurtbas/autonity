@@ -116,6 +116,7 @@ func (sb *Backend) sendToResendCh(ctx context.Context, m messageToPeers) {
 	case <-ctx.Done():
 		return
 	case sb.resend <- m:
+		// fixme we'll loose message in case of stop or restart. Do we need persistence?
 		//sent to channel
 	}
 }
