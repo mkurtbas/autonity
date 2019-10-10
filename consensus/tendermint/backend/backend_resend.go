@@ -36,17 +36,32 @@ func (sb *Backend) sendToPeer(ctx context.Context, addr common.Address, hash com
 	SenderLoop:
 		for {
 			select {
+			case <-sb.stopped:
+				err = peerError{errors.New("error while sending tendermintMsg message to the peer(backend is closed)"), addr}
+				break SenderLoop
 			case <-ticker.C:
 				try++
 
 				if err = p.Send(tendermintMsg, payload); err != nil {
 					err = peerError{errors.New("error while sending tendermintMsg message to the peer: " + err.Error()), addr}
 
-					sb.logger.Trace("inner sender loop. error", "try", try, "peer", addr.Hex(), "msg", hash.Hex(), "err", err.Error())
+					sb.logger.Warn("inner sender loop. error",
+						"try", try,
+						"peer", addr.Hex(),
+						"msg", hash.Hex(),
+						"err", err.Error(),
+						"cacheLen", m.Len(),
+					)
 				} else {
 					err = nil
 
-					sb.logger.Trace("inner sender loop. success", "try", try, "peer", addr.Hex(), "msg", hash.Hex())
+					sb.logger.Warn("inner sender loop. success",
+						"try", try,
+						"peer", addr.Hex(),
+						"msg", hash.Hex(),
+						"err", err.Error(),
+						"cacheLen", m.Len(),
+					)
 					break SenderLoop
 				}
 			case <-ctx.Done():
@@ -84,6 +99,8 @@ func (sb *Backend) ReSend(ctx context.Context, numberOfWorkers int) {
 func (sb *Backend) workerSendLoop(ctx context.Context) {
 	for {
 		select {
+		case <-sb.stopped:
+			return
 		case msgToPeers := <-sb.resend:
 			sb.trySend(ctx, msgToPeers)
 		case <-ctx.Done():
@@ -94,6 +111,8 @@ func (sb *Backend) workerSendLoop(ctx context.Context) {
 
 func (sb *Backend) sendToResendCh(ctx context.Context, m messageToPeers) {
 	select {
+	case <-sb.stopped:
+		return
 	case <-ctx.Done():
 		return
 	case sb.resend <- m:
