@@ -147,6 +147,15 @@ type core struct {
 	futureRoundsChange map[int64]int64
 }
 
+func (c *core) GetConsensusState() ConsensusState {
+	return ConsensusState{
+		CurrentRoundState: CurrentRoundState{
+			Round:  c.currentRoundState.Round().Uint64(),
+			Height: c.currentRoundState.Height().Uint64(),
+		},
+	}
+}
+
 func (c *core) GetCurrentHeightMessages() []*Message {
 	c.currentHeightOldRoundsStatesMu.RLock()
 	defer c.currentHeightOldRoundsStatesMu.RUnlock()

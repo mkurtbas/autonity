@@ -152,4 +152,6 @@ type Backend interface {
 	GetContractAddress() common.Address
 	GetContractABI() string
 	WhiteList() []string
+
+	GetConsensusState() ConsensusState
 }

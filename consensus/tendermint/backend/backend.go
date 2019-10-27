@@ -131,6 +131,23 @@ type Backend struct {
 	vmConfig                *vm.Config
 
 	resend chan messageToPeers
+
+	// never use this object
+	// this is a wicked hack to make tendermint RPC API return consensus state
+	// which is implemented in tendermintCore.core object
+	// this should be reconsidered and refactored
+	consensusStateGetter tendermintCore.ConsensusStateGetter
+}
+
+func (sb *Backend) SetConsensusStateGetter(stateGetter tendermintCore.ConsensusStateGetter) {
+	sb.consensusStateGetter = stateGetter
+}
+
+func (sb *Backend) GetConsensusState() tendermintCore.ConsensusState {
+	if sb.consensusStateGetter == nil {
+		return tendermintCore.ConsensusState{}
+	}
+	return sb.consensusStateGetter.GetConsensusState()
 }
 
 // Address implements tendermint.Backend.Address

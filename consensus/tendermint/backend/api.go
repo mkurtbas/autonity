@@ -68,3 +68,8 @@ func (api *API) GetContractABI() string {
 func (api *API) GetWhitelist() []string {
 	return api.tendermint.WhiteList()
 }
+
+// Get Current Consensus State
+func (api *API) GetConsensusState() core.ConsensusState {
+	return api.tendermint.GetConsensusState()
+}

@@ -289,8 +289,15 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db, chainConfig, vmConfig)
 	}
 	if chainConfig.Tendermint != nil {
+		// at the moment tendermint Backend and Core are intertwined
+		// one (but not the only one) of the reasons is that
+		// in order to get consensus status via RPC API
+		// we need to get it via Backend, which doesn't have the consensus status
+		// so Core provides GetConsensusState method, which can be called by Backend when needed
 		back := tendermintBackend.New(&config.Tendermint, ctx.NodeKey(), db, chainConfig, vmConfig)
-		return tendermintCore.New(back, &config.Tendermint)
+		engine := tendermintCore.New(back, &config.Tendermint)
+		back.SetConsensusStateGetter(engine)
+		return engine
 	}
 
 	// Otherwise assume proof-of-work
