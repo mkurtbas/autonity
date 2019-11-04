@@ -753,9 +753,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
 		// Mark the hashes as present at the remote node
+		var maxHeight uint64
+		var maxHead common.Hash
 		for _, block := range announces {
 			p.MarkBlock(block.Hash)
+			if block.Number >= maxHeight {
+				maxHeight = block.Number
+				maxHead = block.Hash
+			}
 		}
+		maxTd := new(big.Int).SetUint64(maxHeight + 1)
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
@@ -765,6 +772,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		for _, block := range unknown {
 			pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
+		}
+		//schedule a sync if needed
+		if _, td := p.Head(); maxTd.Cmp(td) > 0 {
+			p.SetHead(maxHead, maxTd)
+			currentBlock := pm.blockchain.CurrentBlock()
+			if maxTd.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+				go pm.synchronise(p)
+			}
 		}
 
 	case msg.Code == NewBlockMsg:
