@@ -86,8 +86,7 @@ func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateD
 	}
 
 	// call evm.
-	value := new(big.Int).SetUint64(0x00)
-	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	ret, _, vmerr := evm.StaticCall(sender, ac.Address(), input, gas)
 	log.Debug("bytes return from contract: ", ret)
 	if vmerr != nil {
 		log.Warn("Error Autonity Contract dumpNetworkEconomics")
@@ -153,8 +152,8 @@ func (ac *Contract) DeployAutonityContract(chain consensus.ChainReader, header *
 	enodes := make([]string, 0, ln)
 	accTypes := make([]*big.Int, 0, ln)
 	participantStake := make([]*big.Int, 0, ln)
-	for _, v := range chain.Config().AutonityContractConfig.Users { // Todo: Looping through all the users here
-		validators = append(validators, v.Address) //Todo: Is this appending all the users as validators?
+	for _, v := range chain.Config().AutonityContractConfig.GetValidatorUsers() {
+		validators = append(validators, v.Address)
 		enodes = append(enodes, v.Enode)
 		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
 		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
@@ -207,9 +206,7 @@ func (ac *Contract) ContractGetValidators(chain consensus.ChainReader, header *t
 		return nil, err
 	}
 
-	value := new(big.Int).SetUint64(0x00)
-	//A standard call is issued - we leave the possibility to modify the state
-	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	ret, _, vmerr := evm.StaticCall(sender, ac.Address(), input, gas)
 	if vmerr != nil {
 		return nil, vmerr
 	}
@@ -320,8 +317,7 @@ func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.H
 		return 0, err
 	}
 
-	value := new(big.Int).SetUint64(0x00)
-	ret, _, vmerr := evm.Call(sender, ac.Address(), input, gas, value)
+	ret, _, vmerr := evm.StaticCall(sender, ac.Address(), input, gas)
 	if vmerr != nil {
 		log.Error("Error Autonity Contract getMinimumGasPrice()")
 		return 0, vmerr
@@ -361,7 +357,7 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 	return nil
 }
 
-func (ac *Contract) PerformRedistribution(header *types.Header, db *state.StateDB, gasUsed *big.Int) error {
+func (ac *Contract) PerformRedistribution(header *types.Header, db *state.StateDB, gasUsed *big.Int) error { // Todo: I think that we can get rid of this function
 	if header.Number.Uint64() <= 1 {
 		return nil
 	}

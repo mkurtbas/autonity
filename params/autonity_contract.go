@@ -119,7 +119,7 @@ func (u *User) Validate() error {
 		return errors.New("incorrect user type")
 	}
 
-	if reflect.DeepEqual(u.Address, common.Address{}) && len(u.Enode) == 0 { //TODO: Without the enode we cant do shit
+	if reflect.DeepEqual(u.Address, common.Address{}) && len(u.Enode) == 0 { //TODO: I think this should be broken down in two separate ifs
 		return errors.New("user.enode or user.address must be defined")
 	}
 
@@ -160,7 +160,7 @@ func (ac *AutonityContractGenesis) GetValidatorUsers() []User {
 func (ac *AutonityContractGenesis) GetStakeHolderUsers() []User {
 	var users []User
 	for i := range ac.Users {
-		if ac.Users[i].Type == UserStakeHolder { //TODO: Validators are also stakeholders -> Fix this!
+		if ac.Users[i].Type == UserStakeHolder || ac.Users[i].Type == UserValidator {
 			users = append(users, ac.Users[i])
 		}
 	}
