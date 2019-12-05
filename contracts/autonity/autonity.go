@@ -53,6 +53,7 @@ type Contract struct {
 	contractABI              *abi.ABI
 	bc                       Blockchainer
 	SavedValidatorsRetriever func(i uint64) ([]common.Address, error)
+	SavedCommitteeRetriever  func(i uint64) (*Committee, error)
 	metrics                  EconomicMetrics
 
 	canTransfer func(db vm.StateDB, addr common.Address, amount *big.Int) bool
