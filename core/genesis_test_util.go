@@ -62,6 +62,7 @@ func (g *gethGenesis) ToBlock(db ethdb.Database) *types.GethBlock {
 	}
 	g.mu.RUnlock()
 
+	// old block header
 	head := &types.GethHeader{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
@@ -81,5 +82,6 @@ func (g *gethGenesis) ToBlock(db ethdb.Database) *types.GethBlock {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
-	return &types.GethBlock{Header: head}
+	// old block
+	return types.NewGethBlock(head)
 }

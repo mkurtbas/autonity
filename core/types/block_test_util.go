@@ -24,10 +24,35 @@ type GethHeader struct {
 	Nonce       BlockNonce
 }
 
+func CopyGethHeader(h *GethHeader) *GethHeader {
+	cpy := *h
+	if cpy.Difficulty = new(big.Int); h.Difficulty != nil {
+		cpy.Difficulty.Set(h.Difficulty)
+	}
+	if cpy.Number = new(big.Int); h.Number != nil {
+		cpy.Number.Set(h.Number)
+	}
+	if len(h.Extra) > 0 {
+		cpy.Extra = make([]byte, len(h.Extra))
+		copy(cpy.Extra, h.Extra)
+	}
+	return &cpy
+}
+
 type GethBlock struct {
 	Header       *GethHeader
 	uncles       []*GethHeader
 	transactions Transaction
+}
+
+func NewGethBlock(h *GethHeader) *GethBlock {
+	b := &GethBlock{Header: CopyGethHeader(h)}
+
+	b.Header.TxHash = EmptyRootHash
+	b.Header.ReceiptHash = EmptyRootHash
+	b.Header.UncleHash = EmptyUncleHash
+
+	return b
 }
 
 func (b *GethBlock) Hash() common.Hash {
