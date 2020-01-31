@@ -56,7 +56,9 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 
 	vr := proposal.ValidRound.Int64()
 
-	validRoundPrevotes := c.getPrevotesSet(vr)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+	validRoundPrevotes := c.allPrevotes[vr]
 	if validRoundPrevotes == nil {
 		// Have not received any prevotes for the valid round
 		return nil
@@ -93,7 +95,9 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 
 // Line 34 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForPrevoteTimeout(round int64, height int64) {
-	prevotes := c.getPrevotesSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+	prevotes := c.allPrevotes[round]
 	if prevotes == nil {
 		// Do not have any prevotes for the round
 		return
@@ -115,7 +119,9 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 	proposal := proposalMS.proposal()
 	proposalMsg := proposalMS.proposalMsg()
 
-	prevotes := c.getPrevotesSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+	prevotes := c.allPrevotes[round]
 	if prevotes == nil {
 		// Have not received any prevotes for round
 		return nil
@@ -153,7 +159,9 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 
 // Line 44 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForQuorumPrevotesNil(ctx context.Context, round int64) error {
-	prevotes := c.getPrevotesSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+	prevotes := c.allPrevotes[round]
 	if prevotes == nil {
 		// Have not received any prevotes for round
 		return nil

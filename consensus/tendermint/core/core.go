@@ -453,21 +453,3 @@ func (c *core) setProposalSet(round int64, p Proposal, m *Message) {
 	defer c.coreMu.Unlock()
 	c.allProposals[round] = newProposalSet(p, m)
 }
-
-func (c *core) getPrevotesSet(round int64) *messageSet {
-	c.coreMu.RLock()
-	defer c.coreMu.RUnlock()
-
-	prevotesS, ok := c.allPrevotes[round]
-	if !ok {
-		return nil
-	}
-
-	return prevotesS
-}
-
-func (c *core) setPrevotesSet(round int64) {
-	c.coreMu.Lock()
-	defer c.coreMu.Unlock()
-	c.allPrevotes[round] = newMessageSet()
-}
