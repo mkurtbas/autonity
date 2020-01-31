@@ -413,22 +413,25 @@ func (c *core) getAllRoundMessages() []*Message {
 }
 
 func (c *core) hasVote(v Vote, m *Message) bool {
-	var votes messageSet
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	var votes *messageSet
 	voteRound := v.Round.Int64()
 	mCode := m.Code
 
 	if mCode == msgPrevote {
-		prevotesSet := c.getPrevotesSet(voteRound)
+		prevotesSet := c.allPrevotes[voteRound]
 		if prevotesSet == nil {
 			return false
 		}
-		votes = *prevotesSet
+		votes = prevotesSet
 	} else if mCode == msgPrecommit {
-		precommitsSet := c.getPrecommitsSet(voteRound)
+		precommitsSet := c.allPrecommits[voteRound]
 		if precommitsSet == nil {
 			return false
 		}
-		votes = *precommitsSet
+		votes = precommitsSet
 	}
 	return votes.hasMessage(v.ProposedBlockHash, *m)
 }
@@ -467,22 +470,4 @@ func (c *core) setPrevotesSet(round int64) {
 	c.coreMu.Lock()
 	defer c.coreMu.Unlock()
 	c.allPrevotes[round] = newMessageSet()
-}
-
-func (c *core) getPrecommitsSet(round int64) *messageSet {
-	c.coreMu.RLock()
-	defer c.coreMu.RUnlock()
-
-	precommitsS, ok := c.allPrecommits[round]
-	if !ok {
-		return nil
-	}
-
-	return precommitsS
-}
-
-func (c *core) setPrecommitsSet(round int64) {
-	c.coreMu.Lock()
-	defer c.coreMu.Unlock()
-	c.allPrecommits[round] = newMessageSet()
 }

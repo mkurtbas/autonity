@@ -94,11 +94,12 @@ func (c *core) handlePrecommit(ctx context.Context, msg *Message) error {
 
 	// The precommit doesn't exists in our current round state, so add it, thus it will add the precommit to the round
 	// of the precommit
-	if precommits := c.getPrecommitsSet(preCommit.Round.Int64()); precommits == nil {
-		c.setPrecommitsSet(preCommit.Round.Int64())
+	c.coreMu.Lock()
+	if _, ok := c.allPrecommits[preCommit.Round.Int64()]; !ok {
+		c.allPrecommits[preCommit.Round.Int64()] = newMessageSet()
 	}
-	precommits := c.getPrecommitsSet(preCommit.Round.Int64())
-	precommits.Add(precommitHash, *msg)
+	c.allPrecommits[preCommit.Round.Int64()].Add(precommitHash, *msg)
+	c.coreMu.Unlock()
 
 	c.logPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
 
@@ -144,7 +145,7 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 		currentProposalHash = proposalMS.proposal().ProposalBlock.Hash()
 	}
 
-	precommits := c.getPrecommitsSet(currentRound)
+	precommits := c.allPrecommits[currentRound]
 	if precommits == nil {
 		c.logger.Debug(message,
 			"from", from,

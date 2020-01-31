@@ -27,7 +27,9 @@ func (c *core) commit(ctx context.Context, round int64) {
 
 	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
-	precommits := c.getPrecommitsSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+	precommits := c.allPrecommits[round]
 	if precommits == nil {
 		// This should never be the case
 		c.logger.Error("Precommits empty in commit()")
