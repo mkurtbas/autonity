@@ -93,8 +93,8 @@ func (ms *messageSet) GetMessages() []*Message {
 }
 
 func (ms *messageSet) VotesSize(h common.Hash) int {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
+	//ms.messagesMu.RLock()
+	//defer ms.messagesMu.RUnlock()
 
 	if m, ok := ms.votes[h]; ok {
 		return len(m)
@@ -103,15 +103,15 @@ func (ms *messageSet) VotesSize(h common.Hash) int {
 }
 
 func (ms *messageSet) NilVotesSize() int {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
+	//ms.messagesMu.RLock()
+	//defer ms.messagesMu.RUnlock()
 
 	return len(ms.nilvotes)
 }
 
 func (ms *messageSet) TotalSize() int {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
+	//ms.messagesMu.RLock()
+	//defer ms.messagesMu.RUnlock()
 
 	total := ms.NilVotesSize()
 
@@ -124,8 +124,8 @@ func (ms *messageSet) TotalSize() int {
 
 // TODO: not sure whether both GetMessages() and Values() are both required
 func (ms *messageSet) Values(blockHash common.Hash) []Message {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
+	//ms.messagesMu.RLock()
+	//defer ms.messagesMu.RUnlock()
 
 	if _, ok := ms.votes[blockHash]; !ok {
 		return nil
@@ -142,8 +142,8 @@ func (ms *messageSet) Values(blockHash common.Hash) []Message {
 }
 
 func (ms *messageSet) hasMessage(h common.Hash, m Message) bool {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
+	//ms.messagesMu.RLock()
+	//defer ms.messagesMu.RUnlock()
 
 	if h == (common.Hash{}) {
 		if _, ok := ms.nilvotes[m.Address]; !ok {
