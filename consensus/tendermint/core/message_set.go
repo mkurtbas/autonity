@@ -18,84 +18,61 @@ package core
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"sync"
 )
 
 func newMessageSet() *messageSet {
 	return &messageSet{
-		votes:      map[common.Hash]map[common.Address]Message{},
-		nilvotes:   map[common.Address]Message{},
-		messages:   make([]*Message, 0),
-		messagesMu: new(sync.RWMutex),
+		votes: map[common.Hash]map[common.Address]Message{},
 	}
 }
 
+// empty block hash (common.Hash{}) is for nil votes
 type messageSet struct {
-	votes      map[common.Hash]map[common.Address]Message // map[proposedBlockHash]map[validatorAddress]vote
-	nilvotes   map[common.Address]Message                 // map[validatorAddress]vote
-	messages   []*Message
-	messagesMu *sync.RWMutex
+	votes map[common.Hash]map[common.Address]Message // map[proposedBlockHash]map[validatorAddress]vote
 }
 
 func newProposalSet(p Proposal, m *Message) *proposalSet {
 	return &proposalSet{
 		p:    p,
 		pMsg: m,
-		mu:   new(sync.RWMutex),
 	}
 }
 
 type proposalSet struct {
 	p    Proposal
 	pMsg *Message
-	mu   *sync.RWMutex
 }
 
 func (ms *messageSet) Add(hash common.Hash, msg Message) {
-	ms.messagesMu.Lock()
-	defer ms.messagesMu.Unlock()
+	var addressesMap map[common.Address]Message
+	var ok bool
 
-	if hash == (common.Hash{}) {
-		// Add nil vote
-		if _, ok := ms.nilvotes[msg.Address]; !ok {
-			ms.nilvotes[msg.Address] = msg
-			ms.messages = append(ms.messages, &msg)
-		}
-
-	} else {
-		// Add non nil vote
-		var addressesMap map[common.Address]Message
-		var ok bool
-
-		if _, ok = ms.votes[hash]; !ok {
-			ms.votes[hash] = make(map[common.Address]Message)
-		}
-
-		addressesMap = ms.votes[hash]
-
-		if _, ok := addressesMap[msg.Address]; ok {
-			return
-		}
-
-		addressesMap[msg.Address] = msg
-
-		ms.messages = append(ms.messages, &msg)
+	if _, ok = ms.votes[hash]; !ok {
+		ms.votes[hash] = make(map[common.Address]Message)
 	}
+
+	addressesMap = ms.votes[hash]
+
+	if _, ok := addressesMap[msg.Address]; ok {
+		return
+	}
+
+	addressesMap[msg.Address] = msg
 }
 
 func (ms *messageSet) GetMessages() []*Message {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
+	var result []*Message
 
-	result := make([]*Message, len(ms.messages))
-	copy(result, ms.messages)
+	for _, addressMap := range ms.votes {
+		for _, msg := range addressMap {
+			result = append(result, &msg)
+		}
+	}
+
 	return result
 }
 
 func (ms *messageSet) VotesSize(h common.Hash) int {
-	//ms.messagesMu.RLock()
-	//defer ms.messagesMu.RUnlock()
-
 	if m, ok := ms.votes[h]; ok {
 		return len(m)
 	}
@@ -103,30 +80,18 @@ func (ms *messageSet) VotesSize(h common.Hash) int {
 }
 
 func (ms *messageSet) NilVotesSize() int {
-	//ms.messagesMu.RLock()
-	//defer ms.messagesMu.RUnlock()
-
-	return len(ms.nilvotes)
+	return len(ms.votes[common.Hash{}])
 }
 
 func (ms *messageSet) TotalSize() int {
-	//ms.messagesMu.RLock()
-	//defer ms.messagesMu.RUnlock()
-
-	total := ms.NilVotesSize()
-
+	var total int
 	for _, v := range ms.votes {
 		total = total + len(v)
 	}
-
 	return total
 }
 
-// TODO: not sure whether both GetMessages() and Values() are both required
-func (ms *messageSet) Values(blockHash common.Hash) []Message {
-	//ms.messagesMu.RLock()
-	//defer ms.messagesMu.RUnlock()
-
+func (ms *messageSet) AllBlockHashMessages(blockHash common.Hash) []Message {
 	if _, ok := ms.votes[blockHash]; !ok {
 		return nil
 	}
@@ -142,37 +107,24 @@ func (ms *messageSet) Values(blockHash common.Hash) []Message {
 }
 
 func (ms *messageSet) hasMessage(h common.Hash, m Message) bool {
-	//ms.messagesMu.RLock()
-	//defer ms.messagesMu.RUnlock()
+	var addressesMap map[common.Address]Message
+	var ok bool
 
-	if h == (common.Hash{}) {
-		if _, ok := ms.nilvotes[m.Address]; !ok {
-			return false
-		}
-	} else {
-		var addressesMap map[common.Address]Message
-		var ok bool
-
-		if addressesMap, ok = ms.votes[h]; !ok {
-			return false
-		}
-
-		if _, ok = addressesMap[m.Address]; !ok {
-			return false
-		}
-
+	if addressesMap, ok = ms.votes[h]; !ok {
+		return false
 	}
+
+	if _, ok = addressesMap[m.Address]; !ok {
+		return false
+	}
+
 	return true
 }
 
 func (ps *proposalSet) proposal() Proposal {
-	ps.mu.RLock()
-	defer ps.mu.RUnlock()
 	return ps.p
 }
 
 func (ps *proposalSet) proposalMsg() *Message {
-	ps.mu.RLock()
-	defer ps.mu.RUnlock()
 	return ps.pMsg
 }
