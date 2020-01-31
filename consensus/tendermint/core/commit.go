@@ -11,7 +11,10 @@ import (
 func (c *core) commit(ctx context.Context, round int64) {
 	_ = c.setStep(ctx, precommitDone)
 
-	proposalMS := c.getProposalSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	proposalMS := c.allProposals[round]
 	if proposalMS == nil {
 		// Should never happen really.
 		c.logger.Error("core commit called with empty proposal ")

@@ -140,13 +140,13 @@ func (c *core) logPrecommitMessageEvent(message string, precommit Vote, from, to
 	currentRound := c.getRound().Int64()
 	currentProposalHash := common.Hash{}
 
-	proposalMS := c.getProposalSet(currentRound)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+	proposalMS := c.allProposals[currentRound]
 	if proposalMS != nil {
 		currentProposalHash = proposalMS.proposal().ProposalBlock.Hash()
 	}
 
-	c.coreMu.RLock()
-	defer c.coreMu.RUnlock()
 	precommits := c.allPrecommits[currentRound]
 	if precommits == nil {
 		c.logger.Debug(message,

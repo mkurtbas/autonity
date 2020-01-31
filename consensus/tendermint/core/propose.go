@@ -88,15 +88,17 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 		return err
 	}
 
+	c.coreMu.Lock()
 	// if the proposal is different from what is stored in the round state, then proposer is byzantine, therefore,
 	// ignore the proposal. otherwise, if the proposal block is received more than once through gossip we need to
 	// ignore since the state will not change.
-	if ps := c.getProposalSet(proposal.Round.Int64()); ps != nil {
+	if _, ok := c.allProposals[proposal.Round.Int64()]; ok {
 		return nil
 	}
 	// We don't have old, current or future proposal, then add the proposal to the relevant round message set
 	// and since the state has changed we need to check for consensus on this proposal block.
-	c.setProposalSet(proposal.Round.Int64(), proposal, msg)
+	c.allProposals[proposal.Round.Int64()] = newProposalSet(proposal, msg)
+	c.coreMu.Unlock()
 
 	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 

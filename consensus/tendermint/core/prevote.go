@@ -107,13 +107,13 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 	currentRound := c.getRound().Int64()
 	currentProposalHash := common.Hash{}
 
-	proposalMS := c.getProposalSet(currentRound)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+	proposalMS := c.allProposals[currentRound]
 	if proposalMS != nil {
 		currentProposalHash = proposalMS.proposal().ProposalBlock.Hash()
 	}
 
-	c.coreMu.RLock()
-	defer c.coreMu.RUnlock()
 	prevotes := c.allPrevotes[currentRound]
 	if prevotes == nil {
 		c.logger.Debug(message,

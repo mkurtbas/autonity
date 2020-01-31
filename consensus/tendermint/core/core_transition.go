@@ -8,7 +8,10 @@ import (
 
 // Line 22 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
-	proposalMS := c.getProposalSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	proposalMS := c.allProposals[round]
 	if proposalMS == nil {
 		// Have not received proposal
 		return nil
@@ -46,7 +49,10 @@ func (c *core) checkForNewProposal(ctx context.Context, round int64) error {
 
 // Line 28 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
-	proposalMS := c.getProposalSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	proposalMS := c.allProposals[round]
 	if proposalMS == nil {
 		// Have not received proposal
 		return nil
@@ -55,9 +61,6 @@ func (c *core) checkForOldProposal(ctx context.Context, round int64) error {
 	proposalMsg := proposalMS.proposalMsg()
 
 	vr := proposal.ValidRound.Int64()
-
-	c.coreMu.RLock()
-	defer c.coreMu.RUnlock()
 	validRoundPrevotes := c.allPrevotes[vr]
 	if validRoundPrevotes == nil {
 		// Have not received any prevotes for the valid round
@@ -111,7 +114,10 @@ func (c *core) checkForPrevoteTimeout(round int64, height int64) {
 
 // Line 36 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
-	proposalMS := c.getProposalSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	proposalMS := c.allProposals[round]
 	if proposalMS == nil {
 		// Have not received proposal
 		return nil
@@ -119,8 +125,6 @@ func (c *core) checkForQuorumPrevotes(ctx context.Context, round int64) error {
 	proposal := proposalMS.proposal()
 	proposalMsg := proposalMS.proposalMsg()
 
-	c.coreMu.RLock()
-	defer c.coreMu.RUnlock()
 	prevotes := c.allPrevotes[round]
 	if prevotes == nil {
 		// Have not received any prevotes for round
@@ -199,7 +203,10 @@ func (c *core) checkForPrecommitTimeout(round int64, height int64) {
 
 // Line 49 in Algorithm 1 of the latest gossip on BFT consensus
 func (c *core) checkForConsensus(ctx context.Context, round int64) error {
-	proposalMS := c.getProposalSet(round)
+	c.coreMu.RLock()
+	defer c.coreMu.RUnlock()
+
+	proposalMS := c.allProposals[round]
 	if proposalMS == nil {
 		// Have not received proposal
 		return nil
@@ -207,8 +214,6 @@ func (c *core) checkForConsensus(ctx context.Context, round int64) error {
 	proposal := proposalMS.proposal()
 	proposalMsg := proposalMS.proposalMsg()
 
-	c.coreMu.RLock()
-	defer c.coreMu.RUnlock()
 	precommits := c.allPrecommits[round]
 	if precommits == nil {
 		// Have not received any precommits for round
